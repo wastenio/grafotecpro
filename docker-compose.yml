@@ -2,28 +2,38 @@ version: "3.9"
 
 services:
   web:
-    build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
       - db
+    command: python manage.py runserver 0.0.0.0:8000
 
   db:
-    image: postgres
+    image: postgres:15
     environment:
-      POSTGRES_DB: grafotecdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: your_password
+      POSTGRES_DB: grafotecdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
