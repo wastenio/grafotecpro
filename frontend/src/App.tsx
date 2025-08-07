@@ -7,6 +7,7 @@ import UploadDocument from './pages/UploadDocument';
 import ViewDocuments from './pages/ViewDocuments';
 import PrivateRoute from './components/PrivateRoute';
 import ViewDocument from './pages/ViewDocument';
+import CompareDocuments from './components/CompareDocuments';
 
 export default function App() {
   return (
@@ -29,6 +30,9 @@ export default function App() {
         } />
         <Route path="/documents/:documentId/view" element={
           <PrivateRoute><ViewDocument /></PrivateRoute>
+        } />
+        <Route path="/cases/:caseId/compare" element={
+          <PrivateRoute><CompareDocuments /></PrivateRoute>
         } />
       </Routes>
     </BrowserRouter>

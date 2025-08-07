@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
-from .models import Case, Document
-from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
+from .models import Analysis, Case, Document
+from .serializers import AnalysisSerializer, CaseSerializer, CaseCreateSerializer, DocumentSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -54,3 +54,9 @@ def update_document_annotations(request, pk):
     document.annotations = annotations
     document.save()
     return Response({'detail': 'Anotações atualizadas com sucesso'})
+
+
+class AnalysisCreateView(generics.CreateAPIView):
+    queryset = Analysis.objects.all()
+    serializer_class = AnalysisSerializer
+    permission_classes = [IsAuthenticated]
