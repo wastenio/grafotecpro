@@ -60,3 +60,11 @@ class AnalysisCreateView(generics.CreateAPIView):
     queryset = Analysis.objects.all()
     serializer_class = AnalysisSerializer
     permission_classes = [IsAuthenticated]
+    
+class CaseAnalysisListView(generics.ListAPIView):
+    serializer_class = AnalysisSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        case_id = self.kwargs['case_id']
+        return Analysis.objects.filter(case_id=case_id).order_by('-created_at')

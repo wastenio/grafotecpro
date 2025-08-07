@@ -39,10 +39,15 @@ export default function Dashboard() {
               </Link>
 
               <Link to={`/cases/${c.id}/documents`}>
-                <button className="text-sm bg-gray-600 text-white p-1 px-3 rounded">Ver Docs</button>
+                <button className="text-sm bg-gray-600 text-white p-1 px-3 rounded mr-2">Ver Docs</button>
+              </Link>
+
+              <Link to={`/cases/${c.id}/analyses`}>
+                <button className="text-sm bg-purple-600 text-white p-1 px-3 rounded">Ver Análises</button>
               </Link>
             </li>
           ))}
+
         </ul>
       )}
 
