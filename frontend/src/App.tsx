@@ -5,6 +5,7 @@ import Register from './auth/Register';
 import CreateCase from './pages/CreateCase';
 import UploadDocument from './pages/UploadDocument';
 import ViewDocuments from './pages/ViewDocuments';
+import PrivateRoute from './components/PrivateRoute';
 
 export default function App() {
   return (
@@ -12,10 +13,19 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/cases/new" element={<CreateCase />} />
-        <Route path="/cases/:caseId/upload" element={<UploadDocument />} />
-        <Route path="/cases/:caseId/documents" element={<ViewDocuments />} />
+
+        <Route path="/dashboard" element={
+          <PrivateRoute><Dashboard /></PrivateRoute>
+        } />
+        <Route path="/cases/new" element={
+          <PrivateRoute><CreateCase /></PrivateRoute>
+        } />
+        <Route path="/cases/:caseId/upload" element={
+          <PrivateRoute><UploadDocument /></PrivateRoute>
+        } />
+        <Route path="/cases/:caseId/documents" element={
+          <PrivateRoute><ViewDocuments /></PrivateRoute>
+        } />
       </Routes>
     </BrowserRouter>
   );

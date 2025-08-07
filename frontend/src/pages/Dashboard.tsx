@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/api';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 type Case = {
   id: number;
@@ -11,6 +12,7 @@ type Case = {
 
 export default function Dashboard() {
   const [cases, setCases] = useState<Case[]>([]);
+  const { logout } = useAuth();
 
   useEffect(() => {
     api.get('/cases/')
@@ -49,6 +51,9 @@ export default function Dashboard() {
           Novo Caso
         </button>
       </Link>
+      <button onClick={logout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600" >
+        Sair
+      </button>
     </div>
   );
 }
