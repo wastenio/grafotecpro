@@ -6,6 +6,7 @@ import CreateCase from './pages/CreateCase';
 import UploadDocument from './pages/UploadDocument';
 import ViewDocuments from './pages/ViewDocuments';
 import PrivateRoute from './components/PrivateRoute';
+import ViewDocument from './pages/ViewDocument';
 
 export default function App() {
   return (
@@ -25,6 +26,9 @@ export default function App() {
         } />
         <Route path="/cases/:caseId/documents" element={
           <PrivateRoute><ViewDocuments /></PrivateRoute>
+        } />
+        <Route path="/documents/:documentId/view" element={
+          <PrivateRoute><ViewDocument /></PrivateRoute>
         } />
       </Routes>
     </BrowserRouter>
