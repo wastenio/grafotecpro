@@ -68,3 +68,14 @@ class CaseAnalysisListView(generics.ListAPIView):
     def get_queryset(self):
         case_id = self.kwargs['case_id']
         return Analysis.objects.filter(case_id=case_id).order_by('-created_at')
+    
+class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Analysis.objects.all()
+    serializer_class = AnalysisSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class AnalysisDeleteView(generics.DestroyAPIView):
+    queryset = Analysis.objects.all()
+    serializer_class = AnalysisSerializer
+    permission_classes = [IsAuthenticated]

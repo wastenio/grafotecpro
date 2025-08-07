@@ -9,6 +9,7 @@ import PrivateRoute from './components/PrivateRoute';
 import ViewDocument from './pages/ViewDocument';
 import CompareDocuments from './components/CompareDocuments';
 import AnalysisList from './pages/AnalysisList';
+import EditAnalysis from './pages/EditAnalysis';
 
 export default function App() {
   return (
@@ -37,6 +38,9 @@ export default function App() {
         } />
         <Route path="/cases/:caseId/analyses" element={
           <PrivateRoute><AnalysisList /></PrivateRoute>
+        } />
+        <Route path="/analysis/:id/edit" element={
+          <PrivateRoute><EditAnalysis/></PrivateRoute>
         } />
       </Routes>
     </BrowserRouter>
