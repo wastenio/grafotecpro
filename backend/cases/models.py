@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.postgres.fields import JSONField  # se usar Postgres
 
 class Case(models.Model):
     STATUS_CHOICES = [
@@ -22,6 +23,7 @@ class Document(models.Model):
     file = models.FileField(upload_to='documents/')
     description = models.CharField(max_length=255, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    annotations = models.JSONField(blank=True, null=True)
 
     def __str__(self):
         return f"Documento do caso: {self.case.title}"

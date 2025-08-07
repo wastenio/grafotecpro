@@ -4,7 +4,7 @@ from .models import Case, Document
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
-        fields = ['id', 'file', 'description', 'uploaded_at']
+        fields = ['id', 'file', 'description', 'uploaded_at', 'annotations']
 
 class CaseSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)

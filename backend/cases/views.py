@@ -2,6 +2,12 @@ from rest_framework import generics, permissions
 from .models import Case, Document
 from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Document
+from rest_framework.decorators import api_view, permission_classes
+
 
 class CaseListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -32,3 +38,19 @@ class DocumentUploadView(generics.CreateAPIView):
         case_id = self.request.data.get('case')
         case = Case.objects.get(id=case_id, user=self.request.user)
         serializer.save(case=case)
+        
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_document_annotations(request, pk):
+    try:
+        document = Document.objects.get(pk=pk, case__user=request.user)
+    except Document.DoesNotExist:
+        return Response({'detail': 'Documento não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    annotations = request.data.get('annotations')
+    if annotations is None:
+        return Response({'detail': 'Annotations field required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    document.annotations = annotations
+    document.save()
+    return Response({'detail': 'Anotações atualizadas com sucesso'})
