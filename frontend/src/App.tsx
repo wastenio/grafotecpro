@@ -1,9 +1,22 @@
-function App() {
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Login from './auth/Login';
+import Dashboard from './pages/Dashboard';
+import Register from './auth/Register';
+import CreateCase from './pages/CreateCase';
+import UploadDocument from './pages/UploadDocument';
+import ViewDocuments from './pages/ViewDocuments';
+
+export default function App() {
   return (
-    <div className="text-center text-3xl font-bold text-blue-600 mt-10">
-      Tailwind funcionando manualmente!
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/cases/new" element={<CreateCase />} />
+        <Route path="/cases/:caseId/upload" element={<UploadDocument />} />
+        <Route path="/cases/:caseId/documents" element={<ViewDocuments />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;
