@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate  } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api/api';
 
 interface Analysis {
@@ -31,18 +31,45 @@ export default function AnalysisList() {
         fetchAnalyses();
     }, [caseId]);
 
+    const downloadReport = async () => {
+        try {
+            const response = await api.get(`/cases/${caseId}/report/`, {
+                responseType: 'blob',
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `laudo_caso_${caseId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            alert('Erro ao gerar o PDF do laudo.');
+        }
+    };
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">Análises do Caso #{caseId}</h1>
 
-            <Link
-                to={`/cases/${caseId}/compare`}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-                Nova Análise
-            </Link>
+            <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 mb-6">
+                <Link
+                    to={`/cases/${caseId}/compare`}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center"
+                >
+                    Nova Análise
+                </Link>
 
-            <div className="mt-6 space-y-4">
+                <button
+                    onClick={downloadReport}
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
+                >
+                    Gerar Laudo em PDF
+                </button>
+            </div>
+
+            <div className="space-y-4">
                 {loading ? (
                     <p>Carregando análises...</p>
                 ) : analyses.length === 0 ? (

@@ -1,4 +1,6 @@
 from django.urls import path
+
+from backend.analysis.views import generate_case_report
 from .views import AnalysisDeleteView, AnalysisUpdateView, CaseAnalysisListView, CaseListCreateView, CaseDetailView, DocumentUploadView, update_document_annotations
 from .views import AnalysisCreateView
 
