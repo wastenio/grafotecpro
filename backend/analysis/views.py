@@ -10,7 +10,8 @@ from django.http import HttpResponse
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import generics
+from rest_framework import generics, status
+from django.shortcuts import get_object_or_404
 import io
 import os
 
@@ -134,9 +135,13 @@ def generate_case_report(request, case_id):
 
 
 class AnalysisCreateView(generics.CreateAPIView):
-    queryset = Analysis.objects.all()
     serializer_class = AnalysisSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        case_id = self.kwargs.get('case_id')
+        case = get_object_or_404(Case, pk=case_id, user=self.request.user)
+        serializer.save(case=case)
 
 
 class CaseAnalysisListView(generics.ListAPIView):
@@ -145,16 +150,20 @@ class CaseAnalysisListView(generics.ListAPIView):
 
     def get_queryset(self):
         case_id = self.kwargs['case_id']
-        return Analysis.objects.filter(case_id=case_id).order_by('-created_at')
+        return Analysis.objects.filter(case_id=case_id, case__user=self.request.user).order_by('-created_at')
 
 
 class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = Analysis.objects.all()
     serializer_class = AnalysisSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Analysis.objects.filter(case__user=self.request.user)
 
 
 class AnalysisDeleteView(generics.DestroyAPIView):
-    queryset = Analysis.objects.all()
     serializer_class = AnalysisSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Analysis.objects.filter(case__user=self.request.user)
