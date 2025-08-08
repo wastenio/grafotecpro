@@ -22,6 +22,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
-    path('api/', include('cases.urls')),
-    path('api/analysis/', include('analysis.urls')),
+    path('api/cases/', include('cases.urls')),       # prefixo cases
+    path('api/analysis/', include('analysis.urls')), # prefixo analysis
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+

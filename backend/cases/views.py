@@ -1,12 +1,11 @@
 from rest_framework import generics, permissions
-from .models import Analysis, Case, Document
-from .serializers import AnalysisSerializer, CaseSerializer, CaseCreateSerializer, DocumentSerializer
+from .models import Case, Document
+from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Document
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 
 
 class CaseListCreateView(generics.ListCreateAPIView):
@@ -23,11 +22,13 @@ class CaseListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+
 class CaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Case.objects.filter(user=self.request.user)
+
 
 class DocumentUploadView(generics.CreateAPIView):
     serializer_class = DocumentSerializer
@@ -38,7 +39,8 @@ class DocumentUploadView(generics.CreateAPIView):
         case_id = self.request.data.get('case')
         case = Case.objects.get(id=case_id, user=self.request.user)
         serializer.save(case=case)
-        
+
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_document_annotations(request, pk):
@@ -55,6 +57,7 @@ def update_document_annotations(request, pk):
     document.save()
     return Response({'detail': 'Anotações atualizadas com sucesso'})
 
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
@@ -69,30 +72,3 @@ def upload_signed_report(request, case_id):
         return Response({'error': 'Arquivo não enviado.'}, status=400)
     except Case.DoesNotExist:
         return Response({'error': 'Caso não encontrado.'}, status=404)
-
-
-
-class AnalysisCreateView(generics.CreateAPIView):
-    queryset = Analysis.objects.all()
-    serializer_class = AnalysisSerializer
-    permission_classes = [IsAuthenticated]
-    
-class CaseAnalysisListView(generics.ListAPIView):
-    serializer_class = AnalysisSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        case_id = self.kwargs['case_id']
-        return Analysis.objects.filter(case_id=case_id).order_by('-created_at')
-    
-class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = Analysis.objects.all()
-    serializer_class = AnalysisSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class AnalysisDeleteView(generics.DestroyAPIView):
-    queryset = Analysis.objects.all()
-    serializer_class = AnalysisSerializer
-    permission_classes = [IsAuthenticated]
-    

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Analysis, Case, Document
+from .models import Case, Document
 
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,8 +17,3 @@ class CaseCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
         fields = ['title', 'description', 'status']
-
-class AnalysisSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Analysis
-        fields = '__all__'

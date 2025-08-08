@@ -1,17 +1,16 @@
 from django.urls import path
-
-from .views import AnalysisDeleteView, AnalysisUpdateView, CaseAnalysisListView, CaseListCreateView, CaseDetailView, DocumentUploadView, update_document_annotations, upload_signed_report
-from .views import AnalysisCreateView
+from .views import (
+    CaseListCreateView,
+    CaseDetailView,
+    DocumentUploadView,
+    update_document_annotations,
+    upload_signed_report,
+)
 
 urlpatterns = [
-    path('cases/', CaseListCreateView.as_view(), name='case-list-create'),
-    path('cases/<int:pk>/', CaseDetailView.as_view(), name='case-detail'),
-    path('documents/upload/', DocumentUploadView.as_view(), name='document-upload'),
-    path('documents/<int:pk>/annotations/', update_document_annotations, name='document-update-annotations'),
-    path('cases/<int:case_id>/analysis/', AnalysisCreateView.as_view(), name='analysis-create'),
-    path('cases/<int:case_id>/analysis/list/', CaseAnalysisListView.as_view(), name='analysis-list'),
-    path('analysis/<int:pk>/edit/', AnalysisUpdateView.as_view(), name='analysis-update'),
-    path('analysis/<int:pk>/delete/', AnalysisDeleteView.as_view(), name='analysis-delete'),
-    path('cases/<int:case_id>/upload-signed-report/', upload_signed_report, name='upload-signed-report'),
-
+    path('', CaseListCreateView.as_view(), name='case-list-create'),  # /api/cases/
+    path('<int:pk>/', CaseDetailView.as_view(), name='case-detail'),  # /api/cases/<id>/
+    path('documents/upload/', DocumentUploadView.as_view(), name='document-upload'),  # /api/cases/documents/upload/
+    path('documents/<int:pk>/annotations/', update_document_annotations, name='document-update-annotations'),  # /api/cases/documents/<id>/annotations/
+    path('<int:case_id>/upload-signed-report/', upload_signed_report, name='upload-signed-report'),  # /api/cases/<id>/upload-signed-report/
 ]
