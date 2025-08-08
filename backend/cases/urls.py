@@ -1,7 +1,6 @@
 from django.urls import path
 
-from backend.analysis.views import generate_case_report
-from .views import AnalysisDeleteView, AnalysisUpdateView, CaseAnalysisListView, CaseListCreateView, CaseDetailView, DocumentUploadView, update_document_annotations
+from .views import AnalysisDeleteView, AnalysisUpdateView, CaseAnalysisListView, CaseListCreateView, CaseDetailView, DocumentUploadView, update_document_annotations, upload_signed_report
 from .views import AnalysisCreateView
 
 urlpatterns = [
@@ -13,4 +12,6 @@ urlpatterns = [
     path('cases/<int:case_id>/analysis/list/', CaseAnalysisListView.as_view(), name='analysis-list'),
     path('analysis/<int:pk>/edit/', AnalysisUpdateView.as_view(), name='analysis-update'),
     path('analysis/<int:pk>/delete/', AnalysisDeleteView.as_view(), name='analysis-delete'),
+    path('cases/<int:case_id>/upload-signed-report/', upload_signed_report, name='upload-signed-report'),
+
 ]

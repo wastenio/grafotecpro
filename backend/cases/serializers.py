@@ -11,7 +11,7 @@ class CaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Case
-        fields = ['id', 'title', 'description', 'status', 'created_at', 'documents']
+        fields = ['id', 'title', 'description', 'status', 'created_at', 'documents', 'final_report']
 
 class CaseCreateSerializer(serializers.ModelSerializer):
     class Meta:

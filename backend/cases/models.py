@@ -14,6 +14,7 @@ class Case(models.Model):
     description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    final_report = models.FileField(upload_to='laudos/', null=True, blank=True) 
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"

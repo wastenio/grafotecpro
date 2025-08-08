@@ -8,7 +8,7 @@ import ViewDocuments from './pages/ViewDocuments';
 import PrivateRoute from './components/PrivateRoute';
 import ViewDocument from './pages/ViewDocument';
 import CompareDocuments from './components/CompareDocuments';
-import AnalysisList from './pages/AnalysisList';
+import AnalysisList from './pages/CaseDetails.tsx';
 import EditAnalysis from './pages/EditAnalysis';
 
 export default function App() {

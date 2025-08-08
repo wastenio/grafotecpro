@@ -49,6 +49,7 @@ export default function AnalysisList() {
         }
     };
 
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">Análises do Caso #{caseId}</h1>
@@ -63,10 +64,11 @@ export default function AnalysisList() {
 
                 <button
                     onClick={downloadReport}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 mt-4"
                 >
                     Gerar Laudo em PDF
                 </button>
+
             </div>
 
             <div className="space-y-4">

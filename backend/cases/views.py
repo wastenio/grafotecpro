@@ -55,6 +55,22 @@ def update_document_annotations(request, pk):
     document.save()
     return Response({'detail': 'Anotações atualizadas com sucesso'})
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
+def upload_signed_report(request, case_id):
+    try:
+        case = Case.objects.get(pk=case_id, user=request.user)
+        file = request.FILES.get('final_report')
+        if file:
+            case.final_report = file
+            case.save()
+            return Response({'message': 'Laudo enviado com sucesso.'})
+        return Response({'error': 'Arquivo não enviado.'}, status=400)
+    except Case.DoesNotExist:
+        return Response({'error': 'Caso não encontrado.'}, status=404)
+
+
 
 class AnalysisCreateView(generics.CreateAPIView):
     queryset = Analysis.objects.all()
@@ -79,3 +95,4 @@ class AnalysisDeleteView(generics.DestroyAPIView):
     queryset = Analysis.objects.all()
     serializer_class = AnalysisSerializer
     permission_classes = [IsAuthenticated]
+    
