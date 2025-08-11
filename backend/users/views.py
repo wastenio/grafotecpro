@@ -1,5 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import IsAuthenticated
+
+from backend.core import settings
 from .serializers import RegisterSerializer, UserListSerializer, UserProfileSerializer, UserUpdateSerializer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -11,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.core.mail import EmailMultiAlternatives
 
 User = get_user_model()
 
@@ -133,6 +136,7 @@ def password_reset_request(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
+        # Não revelar se o email existe ou não para segurança
         return Response({'detail': 'Se o email existir, um link de reset será enviado.'})
 
     token = default_token_generator.make_token(user)
@@ -142,12 +146,36 @@ def password_reset_request(request):
         reverse('password-reset-confirm', kwargs={'uid': uid, 'token': token})
     )
 
-    subject = "Reset de senha"
-    message = f"Use esse link para resetar sua senha: {reset_link}"
-    from_email = "no-reply@seusite.com"
-    recipient_list = [email]
+    subject = "Reset de senha - Perícia Grafotécnica"
+    text_content = f"""
+Olá,
 
-    send_mail(subject, message, from_email, recipient_list, fail_silently=True)
+Use esse link para resetar sua senha:
+{reset_link}
+
+Se você não solicitou essa alteração, por favor ignore este email.
+"""
+
+    html_content = f"""
+<p>Olá,</p>
+<p>Use esse link para resetar sua senha:</p>
+<p><a href="{reset_link}">{reset_link}</a></p>
+<p>Se você não solicitou essa alteração, por favor ignore este email.</p>
+"""
+
+    email_msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[email],
+    )
+    email_msg.attach_alternative(html_content, "text/html")
+
+    try:
+        email_msg.send()
+    except Exception as e:
+        # Opcional: você pode usar logging em vez de print
+        print(f"Erro ao enviar email de reset de senha: {e}")
 
     return Response({'detail': 'Se o email existir, um link de reset será enviado.'})
 
