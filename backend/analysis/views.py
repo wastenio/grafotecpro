@@ -18,7 +18,7 @@ import os
 from .models import Case, Analysis
 from .serializers import AnalysisSerializer
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 
 def add_header_footer(canvas, doc):
@@ -77,10 +77,11 @@ def create_comparative_table(analysis, styles):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_case_report(request, case_id):
-    try:
-        case = Case.objects.get(pk=case_id, user=request.user)
-    except Case.DoesNotExist:
-        raise NotFound("Caso não encontrado")
+    case = get_object_or_404(Case, pk=case_id, user=request.user)
+    analyses = Analysis.objects.filter(case=case)
+
+    if not analyses.exists():
+        raise NotFound("Nenhuma análise encontrada para este caso.")
 
     analyses = Analysis.objects.filter(case=case)
 
@@ -149,6 +150,7 @@ class CaseAnalysisListView(generics.ListAPIView):
 
     def get_queryset(self):
         case_id = self.kwargs['case_id']
+        # garante que só traz análises do case do user autenticado
         return Analysis.objects.filter(case_id=case_id, case__user=self.request.user).order_by('-created_at')
 
 

@@ -1,5 +1,6 @@
 # users/views.py (completando)
 
+from django.forms import ValidationError
 from rest_framework import generics, permissions
 from rest_framework.permissions import IsAuthenticated
 from .serializers import RegisterSerializer, UserListSerializer, UserProfileSerializer, UserUpdateSerializer
@@ -12,6 +13,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.generics import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
+from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
 
@@ -40,9 +44,8 @@ class UserUpdateView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         user_id = self.kwargs['pk']
         if self.request.user.is_staff or self.request.user.id == user_id:
-            return User.objects.get(pk=user_id)
+            return get_object_or_404(User, pk=user_id)
         else:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Não autorizado para editar esse usuário")
 
 @api_view(['POST'])
@@ -80,21 +83,26 @@ def password_reset_request(request):
 def password_reset_confirm(request, uid, token):
     password = request.data.get('password')
     password2 = request.data.get('password2')
-    
+
     if not password or not password2:
-        return Response({'error': 'As duas senhas são obrigatórias.'}, status=status.HTTP_400_BAD_REQUEST)
+        raise ValidationError({'password': 'Ambas as senhas são obrigatórias.'})
     if password != password2:
-        return Response({'error': 'As senhas não coincidem.'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        raise ValidationError({'password': 'As senhas não coincidem.'})
+
     try:
         user = User.objects.get(pk=uid)
     except User.DoesNotExist:
-        return Response({'error': 'Usuário inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        raise ValidationError({'user': 'Usuário inválido.'})
+
     if not default_token_generator.check_token(user, token):
-        return Response({'error': 'Token inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        raise ValidationError({'token': 'Token inválido ou expirado.'})
+
+    try:
+        validate_password(password)
+    except ValidationError as e:
+        raise ValidationError({'password': e.messages})
+
     user.set_password(password)
     user.save()
-    
+
     return Response({'detail': 'Senha alterada com sucesso.'})

@@ -1,4 +1,5 @@
 from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
 from .models import Case, Document
 from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
@@ -66,10 +67,7 @@ class DocumentUploadView(generics.CreateAPIView):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_document_annotations(request, pk):
-    try:
-        document = Document.objects.get(pk=pk, case__user=request.user)
-    except Document.DoesNotExist:
-        return Response({'detail': 'Documento não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+    document = get_object_or_404(Document, pk=pk, case__user=request.user)
 
     annotations = request.data.get('annotations')
     if annotations is None:
@@ -85,31 +83,17 @@ def update_document_annotations(request, pk):
 @parser_classes([MultiPartParser])
 def upload_signed_report(request, case_id):
     try:
-        try:
-            case = Case.objects.get(pk=case_id, user=request.user)
-        except Case.DoesNotExist:
-            return Response({'error': 'Caso não encontrado.'}, status=404)
-        
-        file = request.FILES.get('final_report')
-        if file:
-            case.final_report = file
-            case.save()
-            return Response({'message': 'Laudo enviado com sucesso.'})
-        return Response({'error': 'Arquivo não enviado.'}, status=400)
-
-        # Validação do tipo MIME
-        if file.content_type != 'application/pdf':
-            return Response({'error': 'Apenas arquivos PDF são aceitos para o laudo.'}, status=400)
-
-        # Validação do tamanho
-        max_size_mb = 15
-        if file.size > max_size_mb * 1024 * 1024:
-            return Response({'error': f'O arquivo excede o tamanho máximo permitido de {max_size_mb}MB.'}, status=400)
-
-        case.final_report = file
-        case.save()
-        return Response({'message': 'Laudo enviado com sucesso.'})
-
+        case = Case.objects.get(pk=case_id, user=request.user)
     except Case.DoesNotExist:
-        return Response({'error': 'Caso não encontrado.'}, status=404)
+        from rest_framework.exceptions import NotFound
+        raise NotFound('Caso não encontrado ou sem permissão.')
+
+    file = request.FILES.get('final_report')
+    if not file:
+        from rest_framework.exceptions import ValidationError
+        raise ValidationError({'final_report': 'Arquivo final_report é obrigatório.'})
+
+    case.final_report = file
+    case.save()
+    return Response({'message': 'Laudo enviado com sucesso.'})
 
