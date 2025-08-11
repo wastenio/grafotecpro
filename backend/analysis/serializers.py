@@ -13,10 +13,15 @@ class PatternSerializer(serializers.ModelSerializer):
 
 
 class QuesitoSerializer(serializers.ModelSerializer):
+    answered_by_email = serializers.EmailField(source='answered_by.email', read_only=True)
+
     class Meta:
         model = Quesito
-        fields = ['id', 'case', 'requester', 'text', 'created_at', 'answered_text', 'answered_by', 'answered_at']
-        read_only_fields = ['created_at', 'answered_by', 'answered_at']
+        fields = [
+            'id', 'case', 'requester', 'text', 'created_at',
+            'answered_text', 'answered_by', 'answered_by_email', 'answered_at'
+        ]
+        read_only_fields = ['created_at', 'answered_by_email', 'answered_at']
 
 
 class ComparisonSerializer(serializers.ModelSerializer):
@@ -42,8 +47,18 @@ class AnalysisSerializer(serializers.ModelSerializer):
     comparisons = ComparisonSerializer(many=True, read_only=True)
     case = serializers.PrimaryKeyRelatedField(read_only=True)
     perito = serializers.PrimaryKeyRelatedField(read_only=True)
+    quesitos = serializers.SerializerMethodField() 
 
     class Meta:
         model = Analysis
-        fields = ['id', 'case', 'document_original', 'document_contested', 'observation', 'methodology', 'conclusion', 'created_at', 'perito', 'status', 'comparisons']
-        read_only_fields = ['created_at', 'perito', 'comparisons']
+        fields = [
+            'id', 'case', 'document_original', 'document_contested',
+            'observation', 'methodology', 'conclusion', 'created_at',
+            'perito', 'status', 'comparisons', 'quesitos'
+        ]
+        read_only_fields = ['created_at', 'perito', 'comparisons', 'quesitos']
+
+    def get_quesitos(self, obj):
+        # retorna quesitos vinculados ao case do analysis
+        quesitos = obj.case.quesitos.all()
+        return QuesitoSerializer(quesitos, many=True).data

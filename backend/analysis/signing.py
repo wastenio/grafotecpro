@@ -5,7 +5,8 @@ from typing import Optional
 
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.sign import signers
-from pyhanko.sign.signers import PdfSignatureMetadata, SigFieldSpec
+from pyhanko.sign.signers import PdfSignatureMetadata
+from pyhanko.sign.fields import SigFieldSpec
 from pyhanko.sign import timestamps
 
 def sign_pdf_bytes_visible(
@@ -62,7 +63,7 @@ def sign_pdf_bytes_visible(
 
     w = IncrementalPdfFileWriter(BytesIO(pdf_bytes))
 
-    signed_pdf = signers.sign_pdf(
+    sign_pdf_bytes_visible = signers.sign_pdf(
         w,
         signature_meta,
         signer=signer,
@@ -71,6 +72,6 @@ def sign_pdf_bytes_visible(
         new_field_spec=sig_field_spec,
     )
 
-    if hasattr(signed_pdf, 'getvalue'):
-        return signed_pdf.getvalue()
-    return bytes(signed_pdf)
+    if hasattr(sign_pdf_bytes_visible, 'getvalue'):
+        return sign_pdf_bytes_visible.getvalue()
+    return bytes(sign_pdf_bytes_visible)

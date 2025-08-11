@@ -1,11 +1,11 @@
 from django.urls import path
 from .views import (
     PatternListCreateView, PatternDetailView,
-    QuesitoListCreateView, QuesitoAnswerView,
+    QuesitoListCreateView,
     AnalysisCreateView, CaseAnalysisListView, 
     # AnalysisDetailView,
     ComparisonListCreateView,
-    DocumentVersionListCreateView,
+    DocumentVersionListCreateView, QuesitoRetrieveUpdateDeleteView, generate_case_report,
 )
 
 urlpatterns = [
@@ -15,7 +15,7 @@ urlpatterns = [
 
     # Quesitos (per case)
     path('cases/<int:case_id>/quesitos/', QuesitoListCreateView.as_view(), name='case-quesitos'),
-    path('quesitos/<int:pk>/responder/', QuesitoAnswerView.as_view(), name='quesito-answer'),
+    path('quesitos/<int:pk>/', QuesitoRetrieveUpdateDeleteView.as_view(), name='quesito-detail'),
 
     # Analyses
     path('cases/<int:case_id>/analyses/create/', AnalysisCreateView.as_view(), name='analysis-create'),
@@ -27,4 +27,7 @@ urlpatterns = [
 
     # Document versions
     path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-versions'),
+    
+    # Relatório
+    path('cases/<int:case_id>/report/', generate_case_report, name='generate-case-report'),
 ]
