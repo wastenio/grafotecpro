@@ -43,24 +43,23 @@ class DocumentUploadView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         file = self.request.data.get('file')
-        
         if not file:
             raise ValidationError("Arquivo não enviado.")
         
-        # Validação do tipo MIME
+        # Validação tipo do arquivo
         if file.content_type not in self.ALLOWED_CONTENT_TYPES:
-            raise ValidationError("Tipo de arquivo não suportado. Aceitamos apenas PDF, JPG e PNG.")
-        
-        # Validação do tamanho (em bytes)
-        max_size_bytes = self.MAX_FILE_SIZE_MB * 1024 * 1024
-        if file.size > max_size_bytes:
-            raise ValidationError(f"O arquivo excede o tamanho máximo permitido de {self.MAX_FILE_SIZE_MB}MB.")
-        
+            raise ValidationError("Tipo de arquivo não permitido. Use PDF, JPG ou PNG.")
+
+        # Validação tamanho do arquivo
+        if file.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise ValidationError(f"Tamanho máximo do arquivo é {self.MAX_FILE_SIZE_MB}MB.")
+
         case_id = self.request.data.get('case')
         try:
             case = Case.objects.get(id=case_id, user=self.request.user)
         except Case.DoesNotExist:
-            raise NotFound('Caso não encontrado ou não pertence ao usuário')
+            raise ValidationError("Caso não encontrado ou você não tem permissão.")
+
         serializer.save(case=case)
 
 
