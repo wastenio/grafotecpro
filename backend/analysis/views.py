@@ -17,6 +17,8 @@ import os
 
 from .models import Case, Analysis
 from .serializers import AnalysisSerializer
+from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
 
 def add_header_footer(canvas, doc):
@@ -77,61 +79,58 @@ def create_comparative_table(analysis, styles):
 def generate_case_report(request, case_id):
     try:
         case = Case.objects.get(pk=case_id, user=request.user)
-        analyses = Analysis.objects.filter(case=case)
-
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4,
-                                rightMargin=2 * cm, leftMargin=2 * cm,
-                                topMargin=3 * cm, bottomMargin=2.5 * cm)
-
-        styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, leading=16))
-        styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
-
-        story = []
-
-        # Logo (opcional)
-        logo_path = os.path.join(settings.BASE_DIR, "static", "logo.png")
-        if os.path.exists(logo_path):
-            story.append(Image(logo_path, width=4 * cm, height=4 * cm))
-            story.append(Spacer(1, 12))
-
-        # Título e descrição
-        story.append(Paragraph(f"Laudo Técnico – Caso #{case.id}", styles['Title']))
-        story.append(Spacer(1, 12))
-        story.append(Paragraph(f"<b>Descrição do Caso:</b> {case.description}", styles['Justify']))
-        story.append(Spacer(1, 12))
-
-        # Dados do perito
-        story.append(Paragraph(f"<b>Perito:</b> {request.user.get_full_name()} ({request.user.email})", styles['Normal']))
-        story.append(Spacer(1, 12))
-
-        # Análises com imagens comparativas
-        story.append(Paragraph("Análises Realizadas:", styles['Heading2']))
-        for idx, analysis in enumerate(analyses, 1):
-            story.append(Spacer(1, 8))
-            story.append(Paragraph(f"{idx}. {analysis.observation}", styles['Justify']))
-            story.append(Spacer(1, 6))
-            # Adiciona tabela comparativa se imagens existirem
-            table = create_comparative_table(analysis, styles)
-            story.append(table)
-
-        # Assinatura final
-        story.append(PageBreak())
-        story.append(Spacer(1, 48))
-        story.append(Paragraph("_________________________________", styles['Center']))
-        story.append(Paragraph("Assinatura do Perito", styles['Center']))
-        story.append(Spacer(1, 24))
-        story.append(Paragraph("Emitido por sistema de análise pericial", styles['Center']))
-
-        # Gera o PDF com cabeçalho, rodapé e marca d’água
-        doc.build(story, onFirstPage=add_header_footer, onLaterPages=add_header_footer)
-
-        buffer.seek(0)
-        return HttpResponse(buffer, content_type='application/pdf')
-
     except Case.DoesNotExist:
-        return HttpResponse("Caso não encontrado", status=404)
+        raise NotFound("Caso não encontrado")
+
+    analyses = Analysis.objects.filter(case=case)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=2 * cm, leftMargin=2 * cm,
+                            topMargin=3 * cm, bottomMargin=2.5 * cm)
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, leading=16))
+    styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
+
+    story = []
+
+    logo_path = os.path.join(settings.BASE_DIR, "static", "logo.png")
+    if os.path.exists(logo_path):
+        story.append(Image(logo_path, width=4 * cm, height=4 * cm))
+        story.append(Spacer(1, 12))
+
+    story.append(Paragraph(f"Laudo Técnico – Caso #{case.id}", styles['Title']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Descrição do Caso:</b> {case.description}", styles['Justify']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Perito:</b> {request.user.get_full_name()} ({request.user.email})", styles['Normal']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("Análises Realizadas:", styles['Heading2']))
+
+    for idx, analysis in enumerate(analyses, 1):
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(f"{idx}. {analysis.observation}", styles['Justify']))
+        story.append(Spacer(1, 6))
+        table = create_comparative_table(analysis, styles)
+        story.append(table)
+
+    story.append(PageBreak())
+    story.append(Spacer(1, 48))
+    story.append(Paragraph("_________________________________", styles['Center']))
+    story.append(Paragraph("Assinatura do Perito", styles['Center']))
+    story.append(Spacer(1, 24))
+    story.append(Paragraph("Emitido por sistema de análise pericial", styles['Center']))
+
+    try:
+        doc.build(story, onFirstPage=add_header_footer, onLaterPages=add_header_footer)
+    except Exception as e:
+        return Response({'error': f'Erro ao gerar PDF: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename=laudo_caso_{case.id}.pdf'
+    return response
 
 
 class AnalysisCreateView(generics.CreateAPIView):

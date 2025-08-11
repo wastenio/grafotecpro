@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.exceptions import NotFound
 
 
 class CaseListCreateView(generics.ListCreateAPIView):
@@ -55,7 +56,10 @@ class DocumentUploadView(generics.CreateAPIView):
             raise ValidationError(f"O arquivo excede o tamanho máximo permitido de {self.MAX_FILE_SIZE_MB}MB.")
         
         case_id = self.request.data.get('case')
-        case = Case.objects.get(id=case_id, user=self.request.user)
+        try:
+            case = Case.objects.get(id=case_id, user=self.request.user)
+        except Case.DoesNotExist:
+            raise NotFound('Caso não encontrado ou não pertence ao usuário')
         serializer.save(case=case)
 
 
@@ -81,11 +85,17 @@ def update_document_annotations(request, pk):
 @parser_classes([MultiPartParser])
 def upload_signed_report(request, case_id):
     try:
-        case = Case.objects.get(pk=case_id, user=request.user)
+        try:
+            case = Case.objects.get(pk=case_id, user=request.user)
+        except Case.DoesNotExist:
+            return Response({'error': 'Caso não encontrado.'}, status=404)
+        
         file = request.FILES.get('final_report')
-
-        if not file:
-            return Response({'error': 'Arquivo não enviado.'}, status=400)
+        if file:
+            case.final_report = file
+            case.save()
+            return Response({'message': 'Laudo enviado com sucesso.'})
+        return Response({'error': 'Arquivo não enviado.'}, status=400)
 
         # Validação do tipo MIME
         if file.content_type != 'application/pdf':

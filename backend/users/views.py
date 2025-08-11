@@ -35,11 +35,10 @@ class UserListView(generics.ListAPIView):
 class UserUpdateView(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_object(self):
         user_id = self.kwargs['pk']
-        # Usuário só pode editar ele mesmo, ou admin pode editar qualquer um
         if self.request.user.is_staff or self.request.user.id == user_id:
             return User.objects.get(pk=user_id)
         else:
