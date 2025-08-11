@@ -34,7 +34,6 @@ def create_comparative_table(analysis, styles):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @swagger_auto_schema(
-    method='get',
     manual_parameters=[
         openapi.Parameter('case_id', openapi.IN_PATH, description="ID do caso para gerar o relatório", type=openapi.TYPE_INTEGER),
     ],

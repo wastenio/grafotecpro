@@ -98,7 +98,6 @@ class DocumentUploadView(generics.CreateAPIView):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 @swagger_auto_schema(
-    method='patch',
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         required=['annotations'],
@@ -131,7 +130,6 @@ def update_document_annotations(request, pk):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 @swagger_auto_schema(
-    method='post',
     manual_parameters=[
         openapi.Parameter('final_report', openapi.IN_FORM, description="Arquivo do laudo assinado", type=openapi.TYPE_FILE)
     ],

@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import RegisterView, UserListView, UserProfileView, UserUpdateView, password_reset_confirm, password_reset_request
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .views import test_email
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -11,6 +12,7 @@ urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),          # lista todos os usuários (admin)
     path('users/<int:pk>/', UserUpdateView.as_view(), name='user-update'),  # editar usuário
     
+    path('test-email/', test_email, name='test-email'),
     path('password-reset/', password_reset_request, name='password-reset'),
     path('password-reset-confirm/<int:uid>/<str:token>/', password_reset_confirm, name='password-reset-confirm'),
 ]

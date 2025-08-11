@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import IsAuthenticated
 
-from backend.core import settings
+from django.conf import settings
 from .serializers import RegisterSerializer, UserListSerializer, UserProfileSerializer, UserUpdateSerializer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -115,7 +115,6 @@ class UserUpdateView(generics.RetrieveUpdateAPIView):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @swagger_auto_schema(
-    method='post',
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         required=['email'],
@@ -183,7 +182,6 @@ Se você não solicitou essa alteração, por favor ignore este email.
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @swagger_auto_schema(
-    method='post',
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         required=['password', 'password2'],
@@ -222,3 +220,18 @@ def password_reset_confirm(request, uid, token):
     user.save()
 
     return Response({'detail': 'Senha alterada com sucesso.'})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def test_email(request):
+    try:
+        send_mail(
+            'Teste de envio de email',
+            'Se você recebeu este email, a configuração de email está funcionando corretamente.',
+            None,  # usa DEFAULT_FROM_EMAIL
+            [request.user.email],
+            fail_silently=False,
+        )
+        return Response({'detail': 'Email enviado com sucesso para ' + request.user.email})
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
