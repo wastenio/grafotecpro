@@ -18,7 +18,8 @@ import os
 from .models import Case, Analysis
 from .serializers import AnalysisSerializer
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound
+from PIL import Image as PilImage
 
 
 def add_header_footer(canvas, doc):
@@ -44,15 +45,34 @@ def add_header_footer(canvas, doc):
 
 
 def create_comparative_table(analysis, styles):
-    """ Cria uma tabela com as imagens lado a lado e legendas. """
     imgs = []
+
+    # Função helper para validar imagem
+    def is_valid_image(file_path):
+        try:
+            with PilImage.open(file_path) as img:
+                img.verify()  # verifica se o arquivo é imagem válida
+            return True
+        except Exception:
+            return False
+
+    # Documento questionado
     if analysis.document_contested and analysis.document_contested.file:
-        imgs.append(Image(analysis.document_contested.file.path, width=7*cm, height=3*cm))
+        path = analysis.document_contested.file.path
+        if is_valid_image(path):
+            imgs.append(Image(path, width=7*cm, height=3*cm))
+        else:
+            imgs.append(Paragraph("Imagem questionada inválida", styles['Normal']))
     else:
         imgs.append(Paragraph("Sem imagem questionada", styles['Normal']))
 
+    # Documento padrão
     if analysis.document_original and analysis.document_original.file:
-        imgs.append(Image(analysis.document_original.file.path, width=7*cm, height=3*cm))
+        path = analysis.document_original.file.path
+        if is_valid_image(path):
+            imgs.append(Image(path, width=7*cm, height=3*cm))
+        else:
+            imgs.append(Paragraph("Imagem padrão inválida", styles['Normal']))
     else:
         imgs.append(Paragraph("Sem imagem padrão", styles['Normal']))
 
