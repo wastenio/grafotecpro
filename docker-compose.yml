@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/app
+      - ./secrets/certs:/secrets/certs:ro            # <-- Adicione aqui
     ports:
       - "8000:8000"
     depends_on:

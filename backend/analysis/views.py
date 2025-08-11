@@ -17,6 +17,9 @@ from django.utils import timezone
 import io
 import os
 
+import tempfile
+from .signing import sign_pdf_bytes
+
 from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion
 from .serializers import (
     PatternSerializer,
@@ -56,73 +59,107 @@ def create_comparative_table(analysis, styles):
     responses={200: 'PDF gerado com sucesso', 404: 'Caso não encontrado'}
 )
 def generate_case_report(request, case_id):
+    case = get_object_or_404(Case, pk=case_id, user=request.user)
+    analyses = Analysis.objects.filter(case=case)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=2 * cm, leftMargin=2 * cm,
+        topMargin=3 * cm, bottomMargin=2.5 * cm
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, leading=16))
+    styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
+
+    story = []
+
+    # Logo
+    logo_path = os.path.join(settings.BASE_DIR, "static", "logo.png")
+    if os.path.exists(logo_path):
+        story.append(Image(logo_path, width=4 * cm, height=4 * cm))
+        story.append(Spacer(1, 12))
+
+    # Título e descrição
+    story.append(Paragraph(f"Laudo Técnico – Caso #{case.id}", styles['Title']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Descrição do Caso:</b> {case.description}", styles['Justify']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Perito:</b> {request.user.get_full_name()} ({request.user.email})", styles['Normal']))
+    story.append(Spacer(1, 12))
+
+    # Quesitos e Respostas
+    story.append(Paragraph("Quesitos e Respostas:", styles['Heading2']))
+    for q in case.quesitos.all():
+        story.append(Paragraph(f"Q{q.pk}: {q.text}", styles['Normal']))
+        if q.answered_text:
+            story.append(Paragraph(f"Resposta: {q.answered_text}", styles['Normal']))
+        else:
+            story.append(Paragraph("Resposta: (não respondido)", styles['Normal']))
+        story.append(Spacer(1, 6))
+
+    story.append(Spacer(1, 12))
+
+    # Análises
+    story.append(Paragraph("Análises Realizadas:", styles['Heading2']))
+    for idx, analysis in enumerate(analyses, 1):
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(f"{idx}. {analysis.observation}", styles['Justify']))
+        story.append(Spacer(1, 6))
+        table = create_comparative_table(analysis, styles)
+        story.append(table)
+
+    # Assinatura
+    story.append(PageBreak())
+    story.append(Spacer(1, 48))
+    story.append(Paragraph("_________________________________", styles['Center']))
+    story.append(Paragraph("Assinatura do Perito", styles['Center']))
+    story.append(Spacer(1, 24))
+    story.append(Paragraph("Emitido por sistema de análise pericial", styles['Center']))
+
+    # Build PDF
     try:
-        case = Case.objects.get(pk=case_id, user=request.user)
-        analyses = Analysis.objects.filter(case=case)
-
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            rightMargin=2 * cm, leftMargin=2 * cm,
-            topMargin=3 * cm, bottomMargin=2.5 * cm
-        )
-
-        styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, leading=16))
-        styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
-
-        story = []
-
-        # Logo
-        logo_path = os.path.join(settings.BASE_DIR, "static", "logo.png")
-        if os.path.exists(logo_path):
-            story.append(Image(logo_path, width=4 * cm, height=4 * cm))
-            story.append(Spacer(1, 12))
-
-        # Título e descrição
-        story.append(Paragraph(f"Laudo Técnico – Caso #{case.id}", styles['Title']))
-        story.append(Spacer(1, 12))
-        story.append(Paragraph(f"<b>Descrição do Caso:</b> {case.description}", styles['Justify']))
-        story.append(Spacer(1, 12))
-        story.append(Paragraph(f"<b>Perito:</b> {request.user.get_full_name()} ({request.user.email})", styles['Normal']))
-        story.append(Spacer(1, 12))
-
-        # Quesitos e Respostas (novo trecho)
-        story.append(Paragraph("Quesitos e Respostas:", styles['Heading2']))
-        for q in case.quesitos.all():
-            story.append(Paragraph(f"Q{q.pk}: {q.text}", styles['Normal']))
-            if q.answered_text:
-                story.append(Paragraph(f"Resposta: {q.answered_text}", styles['Normal']))
-            else:
-                story.append(Paragraph("Resposta: (não respondido)", styles['Normal']))
-            story.append(Spacer(1, 6))
-
-        story.append(Spacer(1, 12))
-
-        # Análises
-        story.append(Paragraph("Análises Realizadas:", styles['Heading2']))
-        for idx, analysis in enumerate(analyses, 1):
-            story.append(Spacer(1, 8))
-            story.append(Paragraph(f"{idx}. {analysis.observation}", styles['Justify']))
-            story.append(Spacer(1, 6))
-            table = create_comparative_table(analysis, styles)
-            story.append(table)
-
-        # Assinatura
-        story.append(PageBreak())
-        story.append(Spacer(1, 48))
-        story.append(Paragraph("_________________________________", styles['Center']))
-        story.append(Paragraph("Assinatura do Perito", styles['Center']))
-        story.append(Spacer(1, 24))
-        story.append(Paragraph("Emitido por sistema de análise pericial", styles['Center']))
-
         doc.build(story, onFirstPage=add_header_footer, onLaterPages=add_header_footer)
+    except Exception as e:
+        return Response({'error': f'Erro ao gerar PDF: {str(e)}'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        buffer.seek(0)
-        return HttpResponse(buffer, content_type='application/pdf')
+    buffer.seek(0)
+    unsigned_pdf_bytes = buffer.getvalue()
 
-    except Case.DoesNotExist:
-        return HttpResponse("Caso não encontrado", status=404)
+    # Configuração de assinatura
+    pfx_path = os.getenv('SIGNER_PFX_PATH') or getattr(settings, 'SIGNER_PFX_PATH', None)
+    pfx_password = os.getenv('SIGNER_PFX_PASSWORD') or getattr(settings, 'SIGNER_PFX_PASSWORD', None)
+    tsa_url = os.getenv('TSA_URL') or getattr(settings, 'TSA_URL', None)
+    tsa_cert = os.getenv('TSA_CERT_PATH') or getattr(settings, 'TSA_CERT_PATH', None)
+
+    if pfx_path and pfx_password:
+        try:
+            signed_bytes = sign_pdf_bytes(
+                unsigned_pdf_bytes,
+                pfx_path=pfx_path,
+                pfx_password=pfx_password,
+                tsa_url=tsa_url or None,
+                tsa_cert_path=tsa_cert or None
+            )
+            response_bytes = signed_bytes
+            filename = f'laudo_caso_{case.id}_signed.pdf'
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error("Erro ao assinar PDF: %s", e, exc_info=True)
+            response_bytes = unsigned_pdf_bytes
+            filename = f'laudo_caso_{case.id}.pdf'
+    else:
+        response_bytes = unsigned_pdf_bytes
+        filename = f'laudo_caso_{case.id}.pdf'
+
+    # Retorna como download
+    resp = HttpResponse(response_bytes, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return resp
+
 
 
 
