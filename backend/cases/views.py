@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 from rest_framework import generics, permissions
 from .models import Case, Document
 from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
@@ -32,10 +33,27 @@ class CaseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class DocumentUploadView(generics.CreateAPIView):
     serializer_class = DocumentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    ALLOWED_CONTENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
+    MAX_FILE_SIZE_MB = 10
+
     def perform_create(self, serializer):
+        file = self.request.data.get('file')
+        
+        if not file:
+            raise ValidationError("Arquivo não enviado.")
+        
+        # Validação do tipo MIME
+        if file.content_type not in self.ALLOWED_CONTENT_TYPES:
+            raise ValidationError("Tipo de arquivo não suportado. Aceitamos apenas PDF, JPG e PNG.")
+        
+        # Validação do tamanho (em bytes)
+        max_size_bytes = self.MAX_FILE_SIZE_MB * 1024 * 1024
+        if file.size > max_size_bytes:
+            raise ValidationError(f"O arquivo excede o tamanho máximo permitido de {self.MAX_FILE_SIZE_MB}MB.")
+        
         case_id = self.request.data.get('case')
         case = Case.objects.get(id=case_id, user=self.request.user)
         serializer.save(case=case)
@@ -65,10 +83,23 @@ def upload_signed_report(request, case_id):
     try:
         case = Case.objects.get(pk=case_id, user=request.user)
         file = request.FILES.get('final_report')
-        if file:
-            case.final_report = file
-            case.save()
-            return Response({'message': 'Laudo enviado com sucesso.'})
-        return Response({'error': 'Arquivo não enviado.'}, status=400)
+
+        if not file:
+            return Response({'error': 'Arquivo não enviado.'}, status=400)
+
+        # Validação do tipo MIME
+        if file.content_type != 'application/pdf':
+            return Response({'error': 'Apenas arquivos PDF são aceitos para o laudo.'}, status=400)
+
+        # Validação do tamanho
+        max_size_mb = 15
+        if file.size > max_size_mb * 1024 * 1024:
+            return Response({'error': f'O arquivo excede o tamanho máximo permitido de {max_size_mb}MB.'}, status=400)
+
+        case.final_report = file
+        case.save()
+        return Response({'message': 'Laudo enviado com sucesso.'})
+
     except Case.DoesNotExist:
         return Response({'error': 'Caso não encontrado.'}, status=404)
+
