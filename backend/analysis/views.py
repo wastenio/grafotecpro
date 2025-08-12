@@ -26,7 +26,7 @@ from drf_yasg import openapi
 from analysis import utils
 from .ml_service import calculate_signature_similarity
 import openai
-from .permissions import IsCasePeritoOrReadOnly, IsCommentAuthorOrReadOnly, IsCaseMember
+from .permissions import IsCasePeritoOrReadOnly, IsCommentAuthorOrReadOnly
 from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -553,24 +553,7 @@ class ForgeryTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ForgeryType.objects.filter(owner=self.request.user)
 
 
-# --- Permissions ---
-class IsCaseMember(permissions.BasePermission):
-    """
-    Permite acesso somente para usuários relacionados ao case/perícia.
-    """
 
-    def has_object_permission(self, request, view, obj):
-        return (obj.case.user == request.user) or request.user.is_staff
-
-    def has_permission(self, request, view):
-        case_id = request.query_params.get('case')
-        if case_id:
-            try:
-                case = Case.objects.get(pk=case_id)
-                return (case.user == request.user) or request.user.is_staff
-            except Case.DoesNotExist:
-                return False
-        return False
 
 
 # --- Comment Views ---
