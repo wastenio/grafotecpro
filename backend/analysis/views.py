@@ -25,6 +25,10 @@ import openai
 from .models import Comment
 from .serializers import CommentSerializer
 
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from .filters import AnalysisFilter
+
 # Import para assinatura digital (opcional)
 from .signing import sign_pdf_bytes_visible
 from rest_framework import serializers
@@ -104,6 +108,11 @@ class AnalysisViewSet(viewsets.ModelViewSet):
     """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = AnalysisFilter
+    search_fields = ['observation', 'conclusion']  # redundante com filtro, mas ajuda com SearchFilter
+    ordering_fields = ['created_at', 'status', 'perito__username']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         return Analysis.objects.filter(
