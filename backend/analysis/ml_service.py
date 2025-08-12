@@ -31,8 +31,8 @@ class SignatureSimilarityModel:
 
     def predict_similarity(self, img1_path, img2_path):
         if self.model is None:
-            # Modo fallback → usa ORB
-            return calculate_signature_similarity(img1_path, img2_path)
+            # Fallback → usa ORB local
+            return orb_similarity(img1_path, img2_path)
 
         img1 = self.preprocess(img1_path)
         img2 = self.preprocess(img2_path)
@@ -41,7 +41,7 @@ class SignatureSimilarityModel:
         return similarity
 
 
-def calculate_signature_similarity(img1_path, img2_path):
+def orb_similarity(img1_path, img2_path):
     img1 = preprocess_signature_image(img1_path)
     img2 = preprocess_signature_image(img2_path)
 
@@ -62,3 +62,10 @@ def calculate_signature_similarity(img1_path, img2_path):
 
 
 signature_model = SignatureSimilarityModel()
+
+
+def calculate_signature_similarity(img1_path, img2_path):
+    """
+    Interface simples para uso externo.
+    """
+    return signature_model.predict_similarity(img1_path, img2_path)

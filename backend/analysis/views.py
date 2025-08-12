@@ -1,15 +1,10 @@
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, permissions, status, viewsets, filters
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-
 from cases.models import Document
 from .models import Analysis, ForgeryType, Quesito, Case, Comparison, Pattern, DocumentVersion
-from .serializers import (
-    AnalysisSerializer, ForgeryTypeSerializer, QuesitoSerializer,
-    ComparisonSerializer, PatternSerializer,
-    DocumentVersionSerializer
-)
+from .serializers import (AnalysisSerializer, ComparisonDetailResultSerializer, ForgeryTypeSerializer, QuesitoSerializer,ComparisonSerializer, PatternSerializer,DocumentVersionSerializer)
 from django.http import HttpResponse, FileResponse
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -27,6 +22,8 @@ from drf_yasg import openapi
 from analysis import utils
 from .ml_service import calculate_signature_similarity
 import openai
+from .models import Comment
+from .serializers import CommentSerializer
 
 # Import para assinatura digital (opcional)
 from .signing import sign_pdf_bytes_visible
@@ -315,6 +312,11 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
             document_version=document_version,
         )
 
+class ComparisonDetailResultView(generics.RetrieveAPIView):
+    queryset = Comparison.objects.all()
+    serializer_class = ComparisonDetailResultSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'pk'
 
 
 # --- Views para DocumentVersion ---
@@ -327,19 +329,36 @@ class DocumentVersionListCreateView(generics.ListCreateAPIView):
     serializer_class = DocumentVersionSerializer
 
     def get_queryset(self):
-        document_id = self.kwargs.get('document_id')
+        document_id = self.kwargs['document_id']
         return DocumentVersion.objects.filter(
-            document__id=document_id,
+            document_id=document_id,
             document__case__user=self.request.user
         ).order_by('-version_number')
 
     def perform_create(self, serializer):
-        document_id = self.kwargs.get('document_id')
+        document_id = self.kwargs['document_id']
         document = get_object_or_404(Document, pk=document_id, case__user=self.request.user)
-        last = DocumentVersion.objects.filter(document=document).order_by('-version_number').first()
-        next_version = 1 if not last else last.version_number + 1
-        serializer.save(document=document, uploaded_by=self.request.user, version_number=next_version)
 
+        last_version = DocumentVersion.objects.filter(document=document).order_by('-version_number').first()
+        next_version = 1 if not last_version else last_version.version_number + 1
+
+        serializer.save(
+            document=document,
+            uploaded_by=self.request.user,
+            version_number=next_version
+        )
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def download_document_version(request, version_id):
+    version = get_object_or_404(DocumentVersion, pk=version_id, document__case__user=request.user)
+    try:
+        response = FileResponse(version.file.open('rb'), content_type='application/octet-stream')
+        filename = version.file.name.split('/')[-1]
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        return Response({'detail': 'Erro ao acessar o arquivo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # --- Funções auxiliares para relatório PDF ---
 
@@ -548,3 +567,55 @@ class ForgeryTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.user.is_staff:
             return ForgeryType.objects.all()
         return ForgeryType.objects.filter(owner=self.request.user)
+    
+class IsCaseMember(permissions.BasePermission):
+    """
+    Permite acesso somente para usuários relacionados ao case/perícia.
+    Ajuste a lógica conforme regras de negócio.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Pode acessar se for usuário dono do case ou staff
+        return (obj.case.user == request.user) or request.user.is_staff
+
+    def has_permission(self, request, view):
+        # Para list/create, vamos checar case_id na query params
+        case_id = request.query_params.get('case')
+        if case_id:
+            from cases.models import Case
+            try:
+                case = Case.objects.get(pk=case_id)
+                return (case.user == request.user) or request.user.is_staff
+            except Case.DoesNotExist:
+                return False
+        return False
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    CRUD completo para comentários.
+    """
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsCaseMember]
+    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
+    ordering_fields = ['created_at', 'updated_at']
+    search_fields = ['text', 'user__username']
+
+    def get_queryset(self):
+        case_id = self.request.query_params.get('case')
+        analysis_id = self.request.query_params.get('analysis')
+        queryset = Comment.objects.all()
+
+        if case_id:
+            queryset = queryset.filter(case_id=case_id)
+        if analysis_id:
+            queryset = queryset.filter(analysis_id=analysis_id)
+        # Caso queira só comentários raiz (sem parent), pode filtrar:
+        root_only = self.request.query_params.get('root_only')
+        if root_only in ['true', '1']:
+            queryset = queryset.filter(parent__isnull=True)
+
+        return queryset.order_by('created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

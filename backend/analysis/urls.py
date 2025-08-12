@@ -1,19 +1,21 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
+    ComparisonDetailResultView, ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
     QuesitoListCreateView, QuesitoRetrieveUpdateDeleteView,
     AnalysisCreateView, CaseAnalysisListView,
     ComparisonListCreateView,
-    DocumentVersionListCreateView,
+    DocumentVersionListCreateView, download_document_version,
     generate_case_report,
     AnalysisViewSet,
     ForgeryTypeViewSet,
 )
+from .views import CommentViewSet
 
 router = DefaultRouter()
 router.register(r'analyses', AnalysisViewSet, basename='analysis')
 router.register(r'forgery-types', ForgeryTypeViewSet, basename='forgerytype')
+router.register(r'comments', CommentViewSet, basename='comments')
 
 
 urlpatterns = [
@@ -33,7 +35,8 @@ urlpatterns = [
     path('analyses/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
 
     # Document versions
-    path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-versions'),
+    path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-version-list-create'),
+    path('documents/versions/<int:version_id>/download/', download_document_version, name='document-version-download'),
 
     # Relatório customizado
     path('cases/<int:case_id>/report/', generate_case_report, name='generate-case-report'),
@@ -43,4 +46,7 @@ urlpatterns = [
     
     path('forgery-types/', ForgeryTypeListCreateView.as_view(), name='forgerytype-list-create'),
     path('forgery-types/<int:pk>/', ForgeryTypeDetailView.as_view(), name='forgerytype-detail'),
+    
+    path('comparisons/<int:pk>/detail_result/', ComparisonDetailResultView.as_view(), name='comparison-detail-result'),
+    
 ]

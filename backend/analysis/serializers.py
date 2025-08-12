@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion, ForgeryType
 from cases.serializers import DocumentSerializer  # reaproveite se existir
 from cases.models import Document
+from .models import Comment
 
 class PatternSerializer(serializers.ModelSerializer):
     uploaded_document = serializers.PrimaryKeyRelatedField(queryset=Document.objects.all(), required=False, allow_null=True)
@@ -97,11 +98,18 @@ class ComparisonCreateUpdateSerializer(serializers.ModelSerializer):
 
 class DocumentVersionSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = DocumentVersion
         fields = ['id', 'document', 'file', 'version_number', 'uploaded_at', 'uploaded_by', 'changelog']
-        read_only_fields = ['uploaded_at', 'uploaded_by']
+        read_only_fields = ['uploaded_at', 'uploaded_by', 'version_number', 'file_url']
+        
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if obj.file and request:
+            return request.build_absolute_uri(obj.file.url)
+        return None
 
 
 class AnalysisSerializer(serializers.ModelSerializer):
@@ -133,4 +141,56 @@ class ForgeryTypeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['owner'] = user
+        return super().create(validated_data)
+    
+class ComparisonDetailResultSerializer(serializers.ModelSerializer):
+    pattern_file_url = serializers.SerializerMethodField()
+    document_file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comparison
+        fields = ['id', 'similarity_score', 'automatic_result', 'pattern_file_url', 'document_file_url']
+
+    def get_pattern_file_url(self, obj):
+        if obj.pattern_version and obj.pattern_version.file:
+            return obj.pattern_version.file.url
+        elif obj.pattern and obj.pattern.file:
+            return obj.pattern.file.url
+        return None
+
+    def get_document_file_url(self, obj):
+        if obj.document_version and obj.document_version.file:
+            return obj.document_version.file.url
+        elif obj.document and obj.document.file:
+            return obj.document.file.url
+        return None
+    
+class CommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id', 'user', 'user_name', 'case', 'analysis', 'parent', 
+            'text', 'created_at', 'updated_at', 'replies'
+        ]
+        read_only_fields = ['user', 'created_at', 'updated_at', 'user_name', 'replies']
+
+    def get_replies(self, obj):
+        # Serializa as respostas (replies) do comentário
+        replies_qs = obj.replies.all().order_by('created_at')
+        return CommentSerializer(replies_qs, many=True).data
+
+    def validate(self, attrs):
+        # Impede que parent seja de outro case diferente
+        parent = attrs.get('parent')
+        case = attrs.get('case')
+        if parent and parent.case != case:
+            raise serializers.ValidationError("O comentário pai deve pertencer ao mesmo caso.")
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        validated_data['user'] = user
         return super().create(validated_data)
