@@ -30,7 +30,7 @@ urlpatterns = [
     path('cases/<int:case_id>/analyses/', CaseAnalysisListView.as_view(), name='case-analyses'),
 
     # Comparisons
-    path('analysis/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
+    path('analyses/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
 
     # Document versions
     path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-versions'),

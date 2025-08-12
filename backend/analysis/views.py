@@ -1,4 +1,3 @@
-import openai
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -25,10 +24,7 @@ import logging
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from analysis.utils import (
-    get_forgery_patterns,
-    get_forgery_types
-)
+from analysis import utils
 from .ml_service import calculate_signature_similarity
 import openai
 
@@ -152,14 +148,14 @@ class AnalysisViewSet(viewsets.ModelViewSet):
         """
         Lista os tipos de falsificações conhecidos.
         """
-        return Response(get_forgery_types())
+        return Response(utils.get_forgery_types())
 
     @action(detail=False, methods=['get'])
     def reference_patterns(self, request):
         """
         Lista padrões de referência para confronto gráfico.
         """
-        return Response(get_forgery_patterns())
+        return Response(utils.get_forgery_patterns())
 
     @action(detail=True, methods=['get'])
     def export_pdf(self, request, pk=None):
@@ -261,52 +257,64 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         analysis_id = self.kwargs.get('analysis_id')
         analysis = get_object_or_404(Analysis, pk=analysis_id, case__user=self.request.user)
-        
-        # Pegando imagens para comparação
+
         pattern = serializer.validated_data.get('pattern')
         document = serializer.validated_data.get('document')
 
-        if not pattern or not document or not getattr(pattern, 'file', None) or not getattr(document, 'file', None):
-            raise serializers.ValidationError("Pattern e Document com arquivos válidos são necessários.")
+        pattern_version = serializer.validated_data.get('pattern_version')
+        document_version = serializer.validated_data.get('document_version')
 
-        # Caminhos dos arquivos - ajuste conforme seu storage
-        path_img1 = pattern.file.path
-        path_img2 = document.file.path
+        # Definir paths com versões, se fornecidas
+        if pattern_version:
+            path_img1 = pattern_version.file.path
+        elif pattern and pattern.file:
+            path_img1 = pattern.file.path
+        else:
+            path_img1 = None
+
+        if document_version:
+            path_img2 = document_version.file.path
+        elif document and document.file:
+            path_img2 = document.file.path
+        else:
+            path_img2 = None
+
+        if not path_img1 or not path_img2:
+            raise serializers.ValidationError("Arquivos válidos de pattern e document são necessários para comparação.")
 
         # 1. Chamada ML local para obter similaridade
         try:
             similarity_score = calculate_signature_similarity(path_img1, path_img2)
-        except Exception as e:
-            logger.error(f"Erro ao calcular similaridade: {e}", exc_info=True)
-            similarity_score = None
-        
-        # 2. Chamada OpenAI ChatCompletion para gerar texto explicativo
-        openai_prompt = (
-            f"Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:\n\n"
-            f"Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.\n\n"
-            "Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança."
-        )
+        except Exception:
+            similarity_score = None  # Ou tratar erro
 
+        # 2. Chamada OpenAI para gerar texto explicativo
+        openai_prompt = f"""
+    Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:
+
+    Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.
+
+    Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança.
+    """
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o-mini",  # ou outro modelo disponível na sua conta
-                messages=[
-                    {"role": "system", "content": "Você é um perito grafotécnico especializado em análise de assinaturas."},
-                    {"role": "user", "content": openai_prompt}
-                ],
-                max_tokens=300,
-                temperature=0.7,
+            response = openai.Completion.create(
+                model="text-davinci-003",
+                prompt=openai_prompt,
+                max_tokens=150,
+                temperature=0.7
             )
-            automatic_result = response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Erro na chamada OpenAI ChatCompletion: {e}", exc_info=True)
+            automatic_result = response.choices[0].text.strip()
+        except Exception:
             automatic_result = "Não foi possível gerar a análise automática."
 
         serializer.save(
             analysis=analysis,
             similarity_score=similarity_score,
-            automatic_result=automatic_result
+            automatic_result=automatic_result,
+            pattern_version=pattern_version,
+            document_version=document_version,
         )
+
 
 
 # --- Views para DocumentVersion ---

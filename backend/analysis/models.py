@@ -3,6 +3,8 @@ from django.conf import settings
 from cases.models import Case, Document
 
 
+
+
 class Pattern(models.Model):
     """
     Padrões de escrita/assinatura reutilizáveis.
@@ -79,24 +81,6 @@ class Analysis(models.Model):
     def __str__(self):
         return f"Análise {self.pk} - Caso {self.case.id}"
 
-
-class Comparison(models.Model):
-    """
-    Resultado do confronto entre um Pattern e um Document (questionado).
-    """
-    analysis = models.ForeignKey(Analysis, related_name='comparisons', on_delete=models.CASCADE)
-    pattern = models.ForeignKey(Pattern, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
-    document = models.ForeignKey(Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
-    similarity_score = models.FloatField(null=True, blank=True)
-    findings = models.TextField(blank=True)  # observações detalhadas
-    forgery_types = models.ManyToManyField(ForgeryType, blank=True, related_name='analyses')
-    created_at = models.DateTimeField(auto_now_add=True)
-    automatic_result = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"Comparison {self.pk} - Analysis {self.analysis.pk}"
-
-
 class DocumentVersion(models.Model):
     """
     Versões do documento (history).
@@ -114,3 +98,37 @@ class DocumentVersion(models.Model):
 
     def __str__(self):
         return f"{self.document} - v{self.version_number}"
+
+
+class Comparison(models.Model):
+    """
+    Resultado do confronto entre um Pattern e um Document (questionado).
+    """
+    analysis = models.ForeignKey(Analysis, related_name='comparisons', on_delete=models.CASCADE)
+    pattern = models.ForeignKey(Pattern, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
+    document = models.ForeignKey(Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
+    
+    # Novos campos para versões específicas
+    pattern_version = models.ForeignKey(
+        DocumentVersion,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='pattern_comparisons'
+    )
+    document_version = models.ForeignKey(
+        DocumentVersion,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='document_comparisons'
+    )
+    
+    similarity_score = models.FloatField(null=True, blank=True)
+    findings = models.TextField(blank=True)  # observações detalhadas
+    forgery_types = models.ManyToManyField(ForgeryType, blank=True, related_name='analyses')
+    created_at = models.DateTimeField(auto_now_add=True)
+    automatic_result = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Comparison {self.pk} - Analysis {self.analysis.pk}"

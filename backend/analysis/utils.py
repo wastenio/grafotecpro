@@ -183,3 +183,27 @@ def advanced_signature_comparison(path_img1: str, path_img2: str) -> str:
         result = "Baixa similaridade detectada, possível divergência ou falsificação."
 
     return f"{result} (distância média dos matches: {avg_distance:.2f})"
+
+def preprocess_signature_image(img_path, output_size=(300, 150)):
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(f"Imagem não encontrada: {img_path}")
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    img_clahe = clahe.apply(img)
+
+    img_bin = cv2.adaptiveThreshold(
+        img_clahe,
+        maxValue=255,
+        adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        thresholdType=cv2.THRESH_BINARY_INV,
+        blockSize=15,
+        C=8
+    )
+
+    kernel = np.ones((2,2), np.uint8)
+    img_morph = cv2.morphologyEx(img_bin, cv2.MORPH_OPEN, kernel)
+
+    img_resized = cv2.resize(img_morph, output_size)
+
+    return img_resized
