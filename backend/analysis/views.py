@@ -1,16 +1,16 @@
-from rest_framework import generics, permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
 from cases.models import Document
-from .models import Analysis, Quesito, Case, Comparison, Pattern, DocumentVersion
+from .models import Analysis, ForgeryType, Quesito, Case, Comparison, Pattern, DocumentVersion
 from .serializers import (
-    AnalysisSerializer, QuesitoSerializer,
+    AnalysisSerializer, ForgeryTypeSerializer, QuesitoSerializer,
     ComparisonSerializer, PatternSerializer,
     DocumentVersionSerializer
 )
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
@@ -24,8 +24,14 @@ import logging
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from analysis.utils import (
+    get_forgery_patterns,
+    get_forgery_types
+)
 
-# Import para assinatura digital (se usar)
+
+
+# Import para assinatura digital (opcional)
 from .signing import sign_pdf_bytes_visible
 
 logger = logging.getLogger(__name__)
@@ -33,6 +39,9 @@ logger = logging.getLogger(__name__)
 # --- Views para Quesito ---
 
 class QuesitoListCreateView(generics.ListCreateAPIView):
+    """
+    Listar e criar quesitos associados a uma análise.
+    """
     serializer_class = QuesitoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -47,6 +56,9 @@ class QuesitoListCreateView(generics.ListCreateAPIView):
 
 
 class QuesitoRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Recuperar, atualizar ou deletar um quesito específico.
+    """
     serializer_class = QuesitoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -57,9 +69,12 @@ class QuesitoRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         serializer.save(answered_by=self.request.user, answered_at=timezone.now())
 
 
-# --- Views para Pattern (exemplo) ---
+# --- Views para Pattern ---
 
 class PatternListCreateView(generics.ListCreateAPIView):
+    """
+    Listar e criar padrões de análise.
+    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PatternSerializer
 
@@ -73,6 +88,9 @@ class PatternListCreateView(generics.ListCreateAPIView):
 
 
 class PatternDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Recuperar, atualizar ou deletar um padrão.
+    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PatternSerializer
     lookup_field = 'pk'
@@ -81,11 +99,96 @@ class PatternDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.user.is_staff:
             return Pattern.objects.all()
         return Pattern.objects.filter(owner=self.request.user)
+    
+# --- ViewSet para Analysis ---
+class AnalysisViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciar análises completas de grafotecnia.
+    """
+    serializer_class = AnalysisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Analysis.objects.filter(
+            case__user=self.request.user
+        ).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        case_id = self.request.data.get('case_id') or self.kwargs.get('case_id')
+        case = get_object_or_404(Case, pk=case_id, user=self.request.user)
+        serializer.save(case=case, perito=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def upload_document(self, request, pk=None):
+        """
+        Upload de documentos para a análise.
+        """
+        analysis = self.get_object()
+        file = request.FILES.get('document')
+        if not file:
+            return Response({'error': 'Nenhum arquivo enviado.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        analysis.document = file
+        analysis.save()
+        return Response({'status': 'Documento anexado com sucesso.'})
+
+    @action(detail=True, methods=['post'])
+    def run_ai_analysis(self, request, pk=None):
+        """
+        Executa análise avançada via IA/comparação gráfica.
+        """
+        analysis = self.get_object()
+        results = run_ai_graphic_analysis(analysis)
+        analysis.ai_results = results
+        analysis.save()
+        return Response({'status': 'Análise de IA concluída.', 'results': results})
+
+    @action(detail=False, methods=['get'])
+    def forgery_types(self, request):
+        """
+        Lista os tipos de falsificações conhecidos.
+        """
+        return Response(get_forgery_types())
+
+    @action(detail=False, methods=['get'])
+    def reference_patterns(self, request):
+        """
+        Lista padrões de referência para confronto gráfico.
+        """
+        return Response(get_forgery_patterns())
+
+    @action(detail=True, methods=['get'])
+    def export_pdf(self, request, pk=None):
+        """
+        Exporta o laudo em PDF.
+        """
+        analysis = self.get_object()
+        pdf_path = generate_pdf_report(analysis)
+        with open(pdf_path, 'rb') as f:
+            response = Response(f.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="laudo.pdf"'
+            return response
+
+    @action(detail=True, methods=['get'])
+    def export_docx(self, request, pk=None):
+        """
+        Exporta o laudo em DOCX.
+        """
+        analysis = self.get_object()
+        docx_path = generate_docx_report(analysis)
+        with open(docx_path, 'rb') as f:
+            response = Response(f.read(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            response['Content-Disposition'] = f'attachment; filename="laudo.docx"'
+            return response
+
 
 
 # --- Views para Analysis ---
 
 class AnalysisCreateView(generics.CreateAPIView):
+    """
+    Criar uma nova análise vinculada a um caso.
+    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -100,6 +203,9 @@ class AnalysisCreateView(generics.CreateAPIView):
 
 
 class CaseAnalysisListView(generics.ListAPIView):
+    """
+    Listar todas as análises de um caso específico.
+    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -113,6 +219,9 @@ class CaseAnalysisListView(generics.ListAPIView):
 
 
 class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
+    """
+    Recuperar ou atualizar uma análise específica.
+    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -135,6 +244,9 @@ class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
 # --- Views para Comparison ---
 
 class ComparisonListCreateView(generics.ListCreateAPIView):
+    """
+    Listar e criar comparações dentro de uma análise.
+    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ComparisonSerializer
 
@@ -154,6 +266,9 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
 # --- Views para DocumentVersion ---
 
 class DocumentVersionListCreateView(generics.ListCreateAPIView):
+    """
+    Listar e criar versões de documentos.
+    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DocumentVersionSerializer
 
@@ -175,6 +290,9 @@ class DocumentVersionListCreateView(generics.ListCreateAPIView):
 # --- Funções auxiliares para relatório PDF ---
 
 def add_header_footer(canvas, doc):
+    """
+    Adiciona marca d'água, cabeçalho e rodapé ao PDF.
+    """
     canvas.saveState()
 
     canvas.setFont("Helvetica-Bold", 50)
@@ -197,6 +315,9 @@ def add_header_footer(canvas, doc):
 
 
 def create_comparative_table(analysis, styles):
+    """
+    Cria uma tabela com as imagens comparativas das assinaturas.
+    """
     imgs = []
     if analysis.document_contested and analysis.document_contested.file:
         imgs.append(Image(analysis.document_contested.file.path, width=7*cm, height=3*cm))
@@ -238,9 +359,16 @@ def create_comparative_table(analysis, styles):
             type=openapi.TYPE_INTEGER
         ),
     ],
-    responses={200: 'PDF gerado com sucesso', 404: 'Caso não encontrado', 500: 'Erro interno'}
+    responses={
+        200: 'PDF gerado com sucesso',
+        404: 'Caso não encontrado',
+        500: 'Erro interno'
+    }
 )
 def generate_case_report(request, case_id):
+    """
+    Gera o laudo técnico em PDF, contendo análises, quesitos e assinatura visível.
+    """
     try:
         case = get_object_or_404(Case, pk=case_id, user=request.user)
         analyses = Analysis.objects.filter(case=case)
@@ -283,7 +411,6 @@ def generate_case_report(request, case_id):
                 story.append(Spacer(1, 8))
                 story.append(Paragraph("Quesitos e Respostas:", styles['Heading3']))
                 for q in quesitos:
-                    # Corrigindo os nomes dos campos:
                     story.append(Paragraph(f"<b>Q:</b> {q.text}", styles['Normal']))
                     if q.answered_text:
                         story.append(Paragraph(f"<b>R:</b> {q.answered_text}", styles['Justify']))
@@ -337,3 +464,8 @@ def generate_case_report(request, case_id):
     except Exception as e:
         logger.error("Erro ao gerar PDF: %s", e, exc_info=True)
         return Response({"detail": f"Erro interno ao gerar PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ForgeryTypeViewSet(viewsets.ModelViewSet):
+    queryset = ForgeryType.objects.all()
+    serializer_class = ForgeryTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]

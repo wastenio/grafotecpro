@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from cases.models import Case, Document
 
+
 class Pattern(models.Model):
     """
     Padrões de escrita/assinatura reutilizáveis.
@@ -19,12 +20,15 @@ class Pattern(models.Model):
         return f"{self.title} ({self.owner})"
 
 
-class ForgeryType(models.TextChoices):
-    IMITATION = 'imitation', 'Imitação'
-    TRACE = 'trace', 'Decalque/Traçado'
-    ALTERATION = 'alteration', 'Alteração/Recorte/Colagem'
-    MACHINE = 'machine', 'Impressão mecânica'
-    OTHER = 'other', 'Outro'
+class ForgeryType(models.Model):
+    """
+    Tipos de falsificação para catalogação e uso em comparações.
+    """
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 
 class Quesito(models.Model):
@@ -57,7 +61,6 @@ class Analysis(models.Model):
     ]
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='analyses')
-    # Os documentos usados como "original" e "questionado" podem ser tratados por Comparison (mas mantemos compatibilidade)
     document_original = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='analyses_as_original', null=True, blank=True)
     document_contested = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='analyses_as_contested', null=True, blank=True)
     observation = models.TextField(blank=True)
@@ -66,6 +69,8 @@ class Analysis(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     perito = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    automatic_result = models.TextField(blank=True, null=True)  # resultado de análise automática AI ou comparação
 
     def __str__(self):
         return f"Análise {self.pk} - Caso {self.case.id}"
@@ -80,7 +85,7 @@ class Comparison(models.Model):
     document = models.ForeignKey(Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
     similarity_score = models.FloatField(null=True, blank=True)
     findings = models.TextField(blank=True)  # observações detalhadas
-    forgery_type = models.CharField(max_length=50, choices=ForgeryType.choices, null=True, blank=True)
+    forgery_type = models.ForeignKey(ForgeryType, null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

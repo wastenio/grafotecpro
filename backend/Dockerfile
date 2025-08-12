@@ -5,7 +5,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Copia requirements e instala dependências uma única vez
+# Instalar dependências do sistema necessárias para OpenCV
+RUN apt-get update && apt-get install -y libgl1 && rm -rf /var/lib/apt/lists/*
+
+# Copia requirements e instala dependências Python
 COPY requirements.txt .
 
 RUN pip install --upgrade pip

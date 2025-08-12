@@ -1,12 +1,14 @@
 from django.db import models
 from django.conf import settings
-from django.contrib.postgres.fields import JSONField  # se usar Postgres
 
 class Case(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pendente'),
         ('in_progress', 'Em Andamento'),
+        ('under_review', 'Em Revisão'),
+        ('awaiting_validation', 'Aguardando Validação'),
         ('completed', 'Concluído'),
+        ('rejected', 'Rejeitado'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cases')
@@ -28,4 +30,3 @@ class Document(models.Model):
 
     def __str__(self):
         return f"Documento do caso: {self.case.title}"
-

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion
+from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion, ForgeryType
 from cases.serializers import DocumentSerializer  # reaproveite se existir
 from cases.models import Document
 
@@ -27,11 +27,25 @@ class QuesitoSerializer(serializers.ModelSerializer):
 class ComparisonSerializer(serializers.ModelSerializer):
     pattern_detail = PatternSerializer(source='pattern', read_only=True)
     document_detail = serializers.PrimaryKeyRelatedField(source='document', read_only=True)
+    forgery_type = serializers.CharField(source='forgery_type.name', read_only=True)  # Exibir nome no GET
 
     class Meta:
         model = Comparison
         fields = ['id', 'analysis', 'pattern', 'pattern_detail', 'document', 'document_detail', 'similarity_score', 'findings', 'forgery_type', 'created_at']
         read_only_fields = ['created_at']
+
+
+class ComparisonCreateUpdateSerializer(serializers.ModelSerializer):
+    # Agora forgery_type é FK editável via ID
+    forgery_type = serializers.PrimaryKeyRelatedField(queryset=ForgeryType.objects.all(), allow_null=True, required=False)
+
+    class Meta:
+        model = Comparison
+        fields = ['analysis', 'pattern', 'document', 'similarity_score', 'findings', 'forgery_type']
+
+    def validate(self, data):
+        # Pode adicionar validações extras aqui, se quiser
+        return data
 
 
 class DocumentVersionSerializer(serializers.ModelSerializer):
@@ -62,3 +76,8 @@ class AnalysisSerializer(serializers.ModelSerializer):
         # retorna quesitos vinculados ao case do analysis
         quesitos = obj.case.quesitos.all()
         return QuesitoSerializer(quesitos, many=True).data
+
+class ForgeryTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ForgeryType
+        fields = ['id', 'name', 'description']
