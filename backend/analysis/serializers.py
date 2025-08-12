@@ -166,24 +166,23 @@ class ComparisonDetailResultSerializer(serializers.ModelSerializer):
         return None
     
 class CommentSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    author_email = serializers.EmailField(source='author.email', read_only=True)
     replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = [
-            'id', 'user', 'user_name', 'case', 'analysis', 'parent', 
-            'text', 'created_at', 'updated_at', 'replies'
+            'id', 'case', 'author', 'author_name', 'author_email', 
+            'analysis', 'parent', 'text', 'created_at', 'updated_at', 'replies'
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at', 'user_name', 'replies']
+        read_only_fields = ['id', 'author', 'author_name', 'author_email', 'created_at', 'updated_at', 'replies']
 
     def get_replies(self, obj):
-        # Serializa as respostas (replies) do comentário
         replies_qs = obj.replies.all().order_by('created_at')
         return CommentSerializer(replies_qs, many=True).data
 
     def validate(self, attrs):
-        # Impede que parent seja de outro case diferente
         parent = attrs.get('parent')
         case = attrs.get('case')
         if parent and parent.case != case:
@@ -192,5 +191,5 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        validated_data['user'] = user
+        validated_data['author'] = user
         return super().create(validated_data)

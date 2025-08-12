@@ -24,6 +24,7 @@ from .ml_service import calculate_signature_similarity
 import openai
 from .models import Comment
 from .serializers import CommentSerializer
+from .permissions import IsCommentAuthorOrReadOnly
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -605,26 +606,27 @@ class CommentViewSet(viewsets.ModelViewSet):
     CRUD completo para comentários.
     """
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsCaseMember]
+    permission_classes = [permissions.IsAuthenticated, IsCommentAuthorOrReadOnly]
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     ordering_fields = ['created_at', 'updated_at']
-    search_fields = ['text', 'user__username']
+    search_fields = ['text', 'author__username']
 
     def get_queryset(self):
+        user = self.request.user
+        queryset = Comment.objects.filter(case__user=user)  # só comentários dos casos que o usuário tem acesso
+        
         case_id = self.request.query_params.get('case')
         analysis_id = self.request.query_params.get('analysis')
-        queryset = Comment.objects.all()
-
         if case_id:
             queryset = queryset.filter(case_id=case_id)
         if analysis_id:
             queryset = queryset.filter(analysis_id=analysis_id)
-        # Caso queira só comentários raiz (sem parent), pode filtrar:
+
         root_only = self.request.query_params.get('root_only')
         if root_only in ['true', '1']:
             queryset = queryset.filter(parent__isnull=True)
 
-        return queryset.order_by('created_at')
+        return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(author=self.request.user)

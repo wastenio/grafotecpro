@@ -134,7 +134,7 @@ class Comparison(models.Model):
         return f"Comparison {self.pk} - Analysis {self.analysis.pk}"
     
 class Comment(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')
     case = models.ForeignKey('cases.Case', on_delete=models.CASCADE, related_name='comments')
     analysis = models.ForeignKey('Analysis', null=True, blank=True, on_delete=models.CASCADE, related_name='comments')
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
@@ -143,7 +143,7 @@ class Comment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['created_at']
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"Comment #{self.id} by {self.user} on Case #{self.case.id}"
+        return f"Comment #{self.pk} by {self.author} on Case #{self.case.id}"
