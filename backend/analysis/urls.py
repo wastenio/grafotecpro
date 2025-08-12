@@ -1,22 +1,20 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ComparisonDetailResultView, ComparisonViewSet, ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
+    ComparisonDetailResultView, ComparisonListCreateView,
+    ForgeryTypeViewSet, PatternListCreateView, PatternDetailView,
     QuesitoListCreateView, QuesitoRetrieveUpdateDeleteView,
     AnalysisCreateView, CaseAnalysisListView,
-    ComparisonListCreateView,
     DocumentVersionListCreateView, download_document_version,
     generate_case_report,
     AnalysisViewSet,
-    ForgeryTypeViewSet,
+    CommentViewSet,
 )
-from .views import CommentViewSet
 
 router = DefaultRouter()
 router.register(r'analyses', AnalysisViewSet, basename='analysis')
 router.register(r'forgery-types', ForgeryTypeViewSet, basename='forgerytype')
 router.register(r'comments', CommentViewSet, basename='comments')
-
 
 urlpatterns = [
     # Patterns
@@ -31,8 +29,10 @@ urlpatterns = [
     path('cases/<int:case_id>/analyses/create/', AnalysisCreateView.as_view(), name='analysis-create'),
     path('cases/<int:case_id>/analyses/', CaseAnalysisListView.as_view(), name='case-analyses'),
 
-    # Comparisons
+    # Comparisons - custom list/create filtrado por analysis
     path('analyses/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
+
+    # Comparison detail result
     path('comparisons/<int:pk>/detail_result/', ComparisonDetailResultView.as_view(), name='comparison-detail-result'),
 
     # Document versions
@@ -42,12 +42,6 @@ urlpatterns = [
     # Relatório customizado
     path('cases/<int:case_id>/report/', generate_case_report, name='generate-case-report'),
 
-    # Rotas automáticas via router (RESTful para Analysis e ForgeryType)
+    # Rotas RESTful automáticas via router (Analysis, ForgeryType, Comments)
     path('', include(router.urls)),
-    
-    path('forgery-types/', ForgeryTypeListCreateView.as_view(), name='forgerytype-list-create'),
-    path('forgery-types/<int:pk>/', ForgeryTypeDetailView.as_view(), name='forgerytype-detail'),
-    
-    
-    
 ]
