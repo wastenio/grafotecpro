@@ -2,9 +2,13 @@ from rest_framework import generics, permissions, status, viewsets, filters
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from cases.models import Document
-from .models import Analysis, ForgeryType, Quesito, Case, Comparison, Pattern, DocumentVersion
-from .serializers import (AnalysisSerializer, ComparisonDetailResultSerializer, ForgeryTypeSerializer, QuesitoSerializer,ComparisonSerializer, PatternSerializer,DocumentVersionSerializer)
+from cases.models import Document, Case
+from .models import Analysis, ForgeryType, Quesito, Comparison, Pattern, DocumentVersion, Comment
+from .serializers import (
+    AnalysisSerializer, ComparisonCreateUpdateSerializer, ComparisonDetailResultSerializer, ForgeryTypeSerializer,
+    QuesitoSerializer, ComparisonSerializer, PatternSerializer,
+    DocumentVersionSerializer, CommentSerializer
+)
 from django.http import HttpResponse, FileResponse
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -22,28 +26,21 @@ from drf_yasg import openapi
 from analysis import utils
 from .ml_service import calculate_signature_similarity
 import openai
-from .models import Comment
-from .serializers import CommentSerializer
-from .permissions import IsCommentAuthorOrReadOnly
-
+from .permissions import IsCommentAuthorOrReadOnly, IsCaseMember
+from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .filters import AnalysisFilter
-
-# Import para assinatura digital (opcional)
+from rest_framework.pagination import PageNumberPagination
 from .signing import sign_pdf_bytes_visible
 from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
-
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# --- Views para Quesito ---
 
+# --- Quesito Views ---
 class QuesitoListCreateView(generics.ListCreateAPIView):
-    """
-    Listar e criar quesitos associados a uma análise.
-    """
     serializer_class = QuesitoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -58,9 +55,6 @@ class QuesitoListCreateView(generics.ListCreateAPIView):
 
 
 class QuesitoRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Recuperar, atualizar ou deletar um quesito específico.
-    """
     serializer_class = QuesitoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -71,12 +65,8 @@ class QuesitoRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         serializer.save(answered_by=self.request.user, answered_at=timezone.now())
 
 
-# --- Views para Pattern ---
-
+# --- Pattern Views ---
 class PatternListCreateView(generics.ListCreateAPIView):
-    """
-    Listar e criar padrões de análise.
-    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PatternSerializer
 
@@ -90,9 +80,6 @@ class PatternListCreateView(generics.ListCreateAPIView):
 
 
 class PatternDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Recuperar, atualizar ou deletar um padrão.
-    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PatternSerializer
     lookup_field = 'pk'
@@ -101,24 +88,29 @@ class PatternDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.user.is_staff:
             return Pattern.objects.all()
         return Pattern.objects.filter(owner=self.request.user)
-    
-# --- ViewSet para Analysis ---
+
+
+# --- Pagination ---
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+# --- Analysis ViewSet ---
 class AnalysisViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gerenciar análises completas de grafotecnia.
-    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    queryset = Analysis.objects.all().order_by('-created_at')
+    filter_backends = [DjangoFilterBackend, drf_filters.OrderingFilter, drf_filters.SearchFilter]
     filterset_class = AnalysisFilter
-    search_fields = ['observation', 'conclusion']  # redundante com filtro, mas ajuda com SearchFilter
+    search_fields = ['observation', 'methodology', 'conclusion']
     ordering_fields = ['created_at', 'status', 'perito__username']
     ordering = ['-created_at']
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        return Analysis.objects.filter(
-            case__user=self.request.user
-        ).order_by('-created_at')
+        return Analysis.objects.filter(case__user=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
         case_id = self.request.data.get('case_id') or self.kwargs.get('case_id')
@@ -127,23 +119,16 @@ class AnalysisViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def upload_document(self, request, pk=None):
-        """
-        Upload de documentos para a análise.
-        """
         analysis = self.get_object()
         file = request.FILES.get('document')
         if not file:
             return Response({'error': 'Nenhum arquivo enviado.'}, status=status.HTTP_400_BAD_REQUEST)
-        
         analysis.document = file
         analysis.save()
         return Response({'status': 'Documento anexado com sucesso.'})
 
     @action(detail=True, methods=['post'])
     def run_ai_analysis(self, request, pk=None):
-        """
-        Executa análise avançada via IA/comparação gráfica.
-        """
         analysis = self.get_object()
         results = run_ai_graphic_analysis(analysis)
         analysis.ai_results = results
@@ -152,23 +137,14 @@ class AnalysisViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def forgery_types(self, request):
-        """
-        Lista os tipos de falsificações conhecidos.
-        """
         return Response(utils.get_forgery_types())
 
     @action(detail=False, methods=['get'])
     def reference_patterns(self, request):
-        """
-        Lista padrões de referência para confronto gráfico.
-        """
         return Response(utils.get_forgery_patterns())
 
     @action(detail=True, methods=['get'])
     def export_pdf(self, request, pk=None):
-        """
-        Exporta o laudo em PDF.
-        """
         analysis = self.get_object()
         pdf_path = generate_pdf_report(analysis)
         with open(pdf_path, 'rb') as f:
@@ -178,9 +154,6 @@ class AnalysisViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def export_docx(self, request, pk=None):
-        """
-        Exporta o laudo em DOCX.
-        """
         analysis = self.get_object()
         docx_path = generate_docx_report(analysis)
         with open(docx_path, 'rb') as f:
@@ -189,13 +162,8 @@ class AnalysisViewSet(viewsets.ModelViewSet):
             return response
 
 
-
-# --- Views para Analysis ---
-
+# --- Analysis Create/View ---
 class AnalysisCreateView(generics.CreateAPIView):
-    """
-    Criar uma nova análise vinculada a um caso.
-    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -210,9 +178,6 @@ class AnalysisCreateView(generics.CreateAPIView):
 
 
 class CaseAnalysisListView(generics.ListAPIView):
-    """
-    Listar todas as análises de um caso específico.
-    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -226,9 +191,6 @@ class CaseAnalysisListView(generics.ListAPIView):
 
 
 class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
-    """
-    Recuperar ou atualizar uma análise específica.
-    """
     serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -248,11 +210,10 @@ class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
         return Analysis.objects.filter(case__user=self.request.user)
 
 
-# --- Views para Comparison ---
-
+# --- Comparison Views ---
 class ComparisonListCreateView(generics.ListCreateAPIView):
     """
-    Listar e criar comparações dentro de uma análise, com análise IA real integrada.
+    View para listar e criar Comparisons vinculados a uma Analysis.
     """
     serializer_class = ComparisonSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -271,17 +232,17 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
         pattern_version = serializer.validated_data.get('pattern_version')
         document_version = serializer.validated_data.get('document_version')
 
-        # Definir paths com versões, se fornecidas
+        # Define paths para as imagens usando versões, se existirem
         if pattern_version:
             path_img1 = pattern_version.file.path
-        elif pattern and pattern.file:
+        elif pattern and hasattr(pattern, 'file') and pattern.file:
             path_img1 = pattern.file.path
         else:
             path_img1 = None
 
         if document_version:
             path_img2 = document_version.file.path
-        elif document and document.file:
+        elif document and hasattr(document, 'file') and document.file:
             path_img2 = document.file.path
         else:
             path_img2 = None
@@ -289,20 +250,22 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
         if not path_img1 or not path_img2:
             raise serializers.ValidationError("Arquivos válidos de pattern e document são necessários para comparação.")
 
-        # 1. Chamada ML local para obter similaridade
+        # Tenta calcular similaridade com tratamento de exceção específica (a ajustar conforme sua implementação)
         try:
             similarity_score = calculate_signature_similarity(path_img1, path_img2)
-        except Exception:
-            similarity_score = None  # Ou tratar erro
+        except Exception as e:
+            similarity_score = None
+            logger.warning(f"Erro ao calcular similaridade: {e}")
 
-        # 2. Chamada OpenAI para gerar texto explicativo
+        # Monta prompt para OpenAI
         openai_prompt = f"""
-    Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:
+Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:
 
-    Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.
+Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.
 
-    Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança.
-    """
+Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança.
+"""
+        # Tenta obter análise automática com logging do erro se houver
         try:
             response = openai.Completion.create(
                 model="text-davinci-003",
@@ -311,9 +274,11 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
                 temperature=0.7
             )
             automatic_result = response.choices[0].text.strip()
-        except Exception:
+        except Exception as e:
             automatic_result = "Não foi possível gerar a análise automática."
+            logger.error(f"Erro ao chamar OpenAI: {e}")
 
+        # Salva o objeto Comparison com os dados obtidos
         serializer.save(
             analysis=analysis,
             similarity_score=similarity_score,
@@ -322,19 +287,41 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
             document_version=document_version,
         )
 
+
+class ComparisonViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet completo para Comparisons, usando serializers diferentes para leitura e escrita.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return ComparisonSerializer
+        return ComparisonCreateUpdateSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        # Filtra Comparisons para garantir que usuário só veja seus próprios casos
+        return Comparison.objects.filter(analysis__case__user=user)
+
+
 class ComparisonDetailResultView(generics.RetrieveAPIView):
+    """
+    View para obter detalhes do resultado da comparação.
+    """
     queryset = Comparison.objects.all()
     serializer_class = ComparisonDetailResultSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = 'pk'
 
+    def get_queryset(self):
+        # Restringe acesso apenas para comparações dos casos do usuário
+        user = self.request.user
+        return Comparison.objects.filter(analysis__case__user=user)
 
-# --- Views para DocumentVersion ---
 
+# --- DocumentVersion Views ---
 class DocumentVersionListCreateView(generics.ListCreateAPIView):
-    """
-    Listar e criar versões de documentos.
-    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DocumentVersionSerializer
 
@@ -358,39 +345,36 @@ class DocumentVersionListCreateView(generics.ListCreateAPIView):
             version_number=next_version
         )
 
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def download_document_version(request, version_id):
     version = get_object_or_404(DocumentVersion, pk=version_id, document__case__user=request.user)
     try:
         response = FileResponse(version.file.open('rb'), content_type='application/octet-stream')
-        filename = version.file.name.split('/')[-1]
+        filename = os.path.basename(version.file.name)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
+        logger.error(f"Erro ao acessar arquivo: {e}", exc_info=True)
         return Response({'detail': 'Erro ao acessar o arquivo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# --- Funções auxiliares para relatório PDF ---
 
+# --- PDF Report Helpers ---
 def add_header_footer(canvas, doc):
-    """
-    Adiciona marca d'água, cabeçalho e rodapé ao PDF.
-    """
     canvas.saveState()
-
     canvas.setFont("Helvetica-Bold", 50)
     canvas.setFillColorRGB(0.8, 0.8, 0.8, alpha=0.15)
     canvas.translate(A4[0] / 2, A4[1] / 2)
     canvas.rotate(45)
     canvas.drawCentredString(0, 0, "CONFIDENCIAL")
-
     canvas.restoreState()
 
-    # Cabeçalho
+    # Header
     canvas.setFont('Helvetica-Bold', 12)
     canvas.drawString(cm, A4[1] - 1 * cm, "Perícia Grafotécnica – Laudo Técnico")
 
-    # Rodapé
+    # Footer
     canvas.setFont('Helvetica', 9)
     canvas.drawRightString(A4[0] - cm, 1 * cm, f"Página {doc.page}")
 
@@ -398,9 +382,6 @@ def add_header_footer(canvas, doc):
 
 
 def create_comparative_table(analysis, styles):
-    """
-    Cria uma tabela com as imagens comparativas das assinaturas.
-    """
     imgs = []
     if analysis.document_contested and analysis.document_contested.file:
         imgs.append(Image(analysis.document_contested.file.path, width=7*cm, height=3*cm))
@@ -430,8 +411,6 @@ def create_comparative_table(analysis, styles):
     return table
 
 
-# --- Geração de relatório PDF com assinatura opcional e tratamento de erros ---
-
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 @swagger_auto_schema(
@@ -449,9 +428,6 @@ def create_comparative_table(analysis, styles):
     }
 )
 def generate_case_report(request, case_id):
-    """
-    Gera o laudo técnico em PDF, contendo análises, quesitos e assinatura visível.
-    """
     try:
         case = get_object_or_404(Case, pk=case_id, user=request.user)
         analyses = Analysis.objects.filter(case=case)
@@ -480,7 +456,6 @@ def generate_case_report(request, case_id):
         story.append(Paragraph(f"<b>Perito:</b> {request.user.get_full_name()} ({request.user.email})", styles['Normal']))
         story.append(Spacer(1, 12))
 
-        # Quesitos e Respostas agrupados por análise
         for idx, analysis in enumerate(analyses, 1):
             story.append(Spacer(1, 8))
             story.append(Paragraph(f"{idx}. {analysis.observation}", styles['Justify']))
@@ -513,7 +488,6 @@ def generate_case_report(request, case_id):
         buffer.seek(0)
         unsign_pdf_bytes_visible = buffer.getvalue()
 
-        # Assinatura digital (opcional)
         pfx_path = os.getenv('SIGNER_PFX_PATH') or getattr(settings, 'SIGNER_PFX_PATH', None)
         pfx_password = os.getenv('SIGNER_PFX_PASSWORD') or getattr(settings, 'SIGNER_PFX_PASSWORD', None)
         tsa_url = os.getenv('TSA_URL') or getattr(settings, 'TSA_URL', None)
@@ -548,15 +522,15 @@ def generate_case_report(request, case_id):
         logger.error("Erro ao gerar PDF: %s", e, exc_info=True)
         return Response({"detail": f"Erro interno ao gerar PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# --- ForgeryType Views ---
 class ForgeryTypeViewSet(viewsets.ModelViewSet):
     queryset = ForgeryType.objects.all()
     serializer_class = ForgeryTypeSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
+
 class ForgeryTypeListCreateView(generics.ListCreateAPIView):
-    """
-    Listar e criar tipos de falsificação (biblioteca).
-    """
     serializer_class = ForgeryTypeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -567,9 +541,6 @@ class ForgeryTypeListCreateView(generics.ListCreateAPIView):
 
 
 class ForgeryTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Detalhes, atualização e remoção de um tipo de falsificação.
-    """
     serializer_class = ForgeryTypeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -577,22 +548,20 @@ class ForgeryTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.user.is_staff:
             return ForgeryType.objects.all()
         return ForgeryType.objects.filter(owner=self.request.user)
-    
+
+
+# --- Permissions ---
 class IsCaseMember(permissions.BasePermission):
     """
     Permite acesso somente para usuários relacionados ao case/perícia.
-    Ajuste a lógica conforme regras de negócio.
     """
 
     def has_object_permission(self, request, view, obj):
-        # Pode acessar se for usuário dono do case ou staff
         return (obj.case.user == request.user) or request.user.is_staff
 
     def has_permission(self, request, view):
-        # Para list/create, vamos checar case_id na query params
         case_id = request.query_params.get('case')
         if case_id:
-            from cases.models import Case
             try:
                 case = Case.objects.get(pk=case_id)
                 return (case.user == request.user) or request.user.is_staff
@@ -601,20 +570,18 @@ class IsCaseMember(permissions.BasePermission):
         return False
 
 
+# --- Comment Views ---
 class CommentViewSet(viewsets.ModelViewSet):
-    """
-    CRUD completo para comentários.
-    """
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated, IsCommentAuthorOrReadOnly]
-    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
+    filter_backends = [OrderingFilter, SearchFilter]
     ordering_fields = ['created_at', 'updated_at']
     search_fields = ['text', 'author__username']
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Comment.objects.filter(case__user=user)  # só comentários dos casos que o usuário tem acesso
-        
+        queryset = Comment.objects.filter(case__user=user)
+
         case_id = self.request.query_params.get('case')
         analysis_id = self.request.query_params.get('analysis')
         if case_id:

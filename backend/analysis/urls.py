@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ComparisonDetailResultView, ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
+    ComparisonDetailResultView, ComparisonViewSet, ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
     QuesitoListCreateView, QuesitoRetrieveUpdateDeleteView,
     AnalysisCreateView, CaseAnalysisListView,
     ComparisonListCreateView,
@@ -33,6 +33,7 @@ urlpatterns = [
 
     # Comparisons
     path('analyses/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
+    path('comparisons/<int:pk>/detail_result/', ComparisonDetailResultView.as_view(), name='comparison-detail-result'),
 
     # Document versions
     path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-version-list-create'),
@@ -47,6 +48,6 @@ urlpatterns = [
     path('forgery-types/', ForgeryTypeListCreateView.as_view(), name='forgerytype-list-create'),
     path('forgery-types/<int:pk>/', ForgeryTypeDetailView.as_view(), name='forgerytype-detail'),
     
-    path('comparisons/<int:pk>/detail_result/', ComparisonDetailResultView.as_view(), name='comparison-detail-result'),
+    
     
 ]

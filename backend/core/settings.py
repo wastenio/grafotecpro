@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework_simplejwt',
     'users',
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django.contrib.staticfiles',
     'drf_yasg',
+    'django_filters',
 ]
 
 MIDDLEWARE = [

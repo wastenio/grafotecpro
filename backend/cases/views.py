@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, filters as drf_filters
 from .models import Case, Document
 from .serializers import CaseSerializer, CaseCreateSerializer, DocumentSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -10,17 +10,59 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+from django_filters import rest_framework as filters
+
+# Paginação customizada
+from rest_framework.pagination import PageNumberPagination
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10  # default
+    page_size_query_param = 'page_size'  # permite ?page_size=xx
+    max_page_size = 100
+
+
+# Filtro full-text e outros para Case
+class CaseFilter(filters.FilterSet):
+    search = filters.CharFilter(method='full_text_search')
+    status = filters.CharFilter(field_name='status')
+    date_from = filters.DateFilter(field_name='created_at', lookup_expr='gte')
+    date_to = filters.DateFilter(field_name='created_at', lookup_expr='lte')
+    perito = filters.NumberFilter(field_name='user__id')
+
+    class Meta:
+        model = Case
+        fields = ['status', 'perito']
+
+    def full_text_search(self, queryset, name, value):
+        vector = SearchVector('title', 'description')
+        query = SearchQuery(value)
+        return queryset.annotate(rank=SearchRank(vector, query)).filter(rank__gte=0.1).order_by('-rank')
+
 
 class CaseListCreateView(generics.ListCreateAPIView):
     """
     get:
     Retorna a lista de casos associados ao usuário autenticado.
+    Aceita filtros avançados:
+    - search (busca full-text em título e descrição)
+    - status
+    - date_from, date_to (datas criação)
+    - perito (id do usuário)
+    Suporta paginação e ordenação via query params.
 
     post:
     Cria um novo caso para o usuário autenticado.
     Campos esperados: title (string), description (string opcional), status (string opcional).
     """
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, drf_filters.OrderingFilter]
+    filterset_class = CaseFilter
+    pagination_class = StandardResultsSetPagination
+    ordering_fields = ['created_at', 'status']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         return Case.objects.filter(user=self.request.user)
