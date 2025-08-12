@@ -8,6 +8,7 @@ import io
 from datetime import datetime
 
 from analysis.models import ForgeryType
+import numpy as np
 
 
 
@@ -141,3 +142,44 @@ def get_forgery_types():
     Retorna todos os tipos de falsificação cadastrados no banco.
     """
     return ForgeryType.objects.all()
+
+def advanced_signature_comparison(path_img1: str, path_img2: str) -> str:
+    """
+    Compara duas imagens usando detector ORB e matching de keypoints para análise avançada.
+    Retorna um texto descrevendo o nível de similaridade.
+    """
+    img1 = cv2.imread(path_img1, cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(path_img2, cv2.IMREAD_GRAYSCALE)
+
+    if img1 is None or img2 is None:
+        return "Erro: uma ou ambas as imagens não puderam ser carregadas."
+
+    img1 = cv2.resize(img1, (300, 150))
+    img2 = cv2.resize(img2, (300, 150))
+
+    orb = cv2.ORB_create()
+
+    keypoints1, descriptors1 = orb.detectAndCompute(img1, None)
+    keypoints2, descriptors2 = orb.detectAndCompute(img2, None)
+
+    if descriptors1 is None or descriptors2 is None:
+        return "Imagens não possuem descritores suficientes para comparação."
+
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+    matches = bf.match(descriptors1, descriptors2)
+    matches = sorted(matches, key=lambda x: x.distance)
+
+    if len(matches) == 0:
+        return "Nenhum ponto correspondente encontrado entre as imagens."
+
+    avg_distance = np.mean([m.distance for m in matches])
+
+    if avg_distance < 30:
+        result = "Alto nível de similaridade detectado entre as assinaturas."
+    elif avg_distance < 60:
+        result = "Similaridade moderada detectada, recomenda-se revisão manual."
+    else:
+        result = "Baixa similaridade detectada, possível divergência ou falsificação."
+
+    return f"{result} (distância média dos matches: {avg_distance:.2f})"

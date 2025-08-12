@@ -28,7 +28,7 @@ from analysis.utils import (
     get_forgery_patterns,
     get_forgery_types
 )
-
+from .ml import run_ai_signature_analysis
 
 
 # Import para assinatura digital (opcional)
@@ -245,7 +245,7 @@ class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
 
 class ComparisonListCreateView(generics.ListCreateAPIView):
     """
-    Listar e criar comparações dentro de uma análise.
+    Listar e criar comparações dentro de uma análise, com análise IA.
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ComparisonSerializer
@@ -260,7 +260,16 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         analysis_id = self.kwargs.get('analysis_id')
         analysis = get_object_or_404(Analysis, pk=analysis_id, case__user=self.request.user)
-        serializer.save(analysis=analysis)
+        instance = serializer.save(analysis=analysis)
+
+        # Executa análise IA simulada se documentos estiverem disponíveis
+        if instance.document_contested and instance.document_original:
+            ai_result = run_ai_signature_analysis(
+                instance.document_contested.file.path,
+                instance.document_original.file.path
+            )
+            instance.automatic_result = ai_result.get('comments', '')
+            instance.save()
 
 
 # --- Views para DocumentVersion ---
@@ -469,3 +478,28 @@ class ForgeryTypeViewSet(viewsets.ModelViewSet):
     queryset = ForgeryType.objects.all()
     serializer_class = ForgeryTypeSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+class ForgeryTypeListCreateView(generics.ListCreateAPIView):
+    """
+    Listar e criar tipos de falsificação (biblioteca).
+    """
+    serializer_class = ForgeryTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return ForgeryType.objects.all()
+        return ForgeryType.objects.filter(owner=self.request.user)
+
+
+class ForgeryTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detalhes, atualização e remoção de um tipo de falsificação.
+    """
+    serializer_class = ForgeryTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return ForgeryType.objects.all()
+        return ForgeryType.objects.filter(owner=self.request.user)

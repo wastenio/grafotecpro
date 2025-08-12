@@ -18,8 +18,12 @@ class AnalysisAdmin(admin.ModelAdmin):
 
 @admin.register(Comparison)
 class ComparisonAdmin(admin.ModelAdmin):
-    list_display = ('id', 'analysis', 'pattern', 'document', 'forgery_type', 'created_at')
-    search_fields = ('findings',)
+    list_display = ('id', 'analysis', 'created_at') 
+
+    def get_forgery_types(self, obj):
+        return ", ".join([ft.name for ft in obj.analysis.forgery_types.all()])
+
+    get_forgery_types.short_description = 'Tipos de Falsificação'
 
 @admin.register(DocumentVersion)
 class DocumentVersionAdmin(admin.ModelAdmin):

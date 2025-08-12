@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    PatternListCreateView, PatternDetailView,
+    ForgeryTypeDetailView, ForgeryTypeListCreateView, PatternListCreateView, PatternDetailView,
     QuesitoListCreateView, QuesitoRetrieveUpdateDeleteView,
     AnalysisCreateView, CaseAnalysisListView,
     ComparisonListCreateView,
@@ -14,6 +14,7 @@ from .views import (
 router = DefaultRouter()
 router.register(r'analyses', AnalysisViewSet, basename='analysis')
 router.register(r'forgery-types', ForgeryTypeViewSet, basename='forgerytype')
+
 
 urlpatterns = [
     # Patterns
@@ -29,7 +30,7 @@ urlpatterns = [
     path('cases/<int:case_id>/analyses/', CaseAnalysisListView.as_view(), name='case-analyses'),
 
     # Comparisons
-    path('analyses/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='analysis-comparisons'),
+    path('analysis/<int:analysis_id>/comparisons/', ComparisonListCreateView.as_view(), name='comparison-list-create'),
 
     # Document versions
     path('documents/<int:document_id>/versions/', DocumentVersionListCreateView.as_view(), name='document-versions'),
@@ -39,4 +40,7 @@ urlpatterns = [
 
     # Rotas automáticas via router (RESTful para Analysis e ForgeryType)
     path('', include(router.urls)),
+    
+    path('forgery-types/', ForgeryTypeListCreateView.as_view(), name='forgerytype-list-create'),
+    path('forgery-types/<int:pk>/', ForgeryTypeDetailView.as_view(), name='forgerytype-detail'),
 ]

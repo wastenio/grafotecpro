@@ -22,10 +22,14 @@ class Pattern(models.Model):
 
 class ForgeryType(models.Model):
     """
-    Tipos de falsificação para catalogação e uso em comparações.
+    Biblioteca de tipos de falsificação com descrição e exemplos.
     """
     name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True)
+    example_image = models.ImageField(upload_to='forgery_examples/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -85,8 +89,9 @@ class Comparison(models.Model):
     document = models.ForeignKey(Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
     similarity_score = models.FloatField(null=True, blank=True)
     findings = models.TextField(blank=True)  # observações detalhadas
-    forgery_type = models.ForeignKey(ForgeryType, null=True, blank=True, on_delete=models.SET_NULL)
+    forgery_types = models.ManyToManyField(ForgeryType, blank=True, related_name='analyses')
     created_at = models.DateTimeField(auto_now_add=True)
+    automatic_result = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Comparison {self.pk} - Analysis {self.analysis.pk}"
