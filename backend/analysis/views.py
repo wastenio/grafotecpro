@@ -1,3 +1,4 @@
+import openai
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -28,13 +29,16 @@ from analysis.utils import (
     get_forgery_patterns,
     get_forgery_types
 )
-from .ml import run_ai_signature_analysis
-
+from .ml_service import calculate_signature_similarity
+import openai
 
 # Import para assinatura digital (opcional)
 from .signing import sign_pdf_bytes_visible
+from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # --- Views para Quesito ---
 
@@ -245,31 +249,64 @@ class AnalysisUpdateView(generics.RetrieveUpdateAPIView):
 
 class ComparisonListCreateView(generics.ListCreateAPIView):
     """
-    Listar e criar comparações dentro de uma análise, com análise IA.
+    Listar e criar comparações dentro de uma análise, com análise IA real integrada.
     """
-    permission_classes = [permissions.IsAuthenticated]
     serializer_class = ComparisonSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         analysis_id = self.kwargs.get('analysis_id')
-        return Comparison.objects.filter(
-            analysis__id=analysis_id,
-            analysis__case__user=self.request.user
-        )
+        return Comparison.objects.filter(analysis__id=analysis_id, analysis__case__user=self.request.user)
 
     def perform_create(self, serializer):
         analysis_id = self.kwargs.get('analysis_id')
         analysis = get_object_or_404(Analysis, pk=analysis_id, case__user=self.request.user)
-        instance = serializer.save(analysis=analysis)
+        
+        # Pegando imagens para comparação
+        pattern = serializer.validated_data.get('pattern')
+        document = serializer.validated_data.get('document')
 
-        # Executa análise IA simulada se documentos estiverem disponíveis
-        if instance.document_contested and instance.document_original:
-            ai_result = run_ai_signature_analysis(
-                instance.document_contested.file.path,
-                instance.document_original.file.path
+        if not pattern or not document or not getattr(pattern, 'file', None) or not getattr(document, 'file', None):
+            raise serializers.ValidationError("Pattern e Document com arquivos válidos são necessários.")
+
+        # Caminhos dos arquivos - ajuste conforme seu storage
+        path_img1 = pattern.file.path
+        path_img2 = document.file.path
+
+        # 1. Chamada ML local para obter similaridade
+        try:
+            similarity_score = calculate_signature_similarity(path_img1, path_img2)
+        except Exception as e:
+            logger.error(f"Erro ao calcular similaridade: {e}", exc_info=True)
+            similarity_score = None
+        
+        # 2. Chamada OpenAI ChatCompletion para gerar texto explicativo
+        openai_prompt = (
+            f"Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:\n\n"
+            f"Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.\n\n"
+            "Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança."
+        )
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",  # ou outro modelo disponível na sua conta
+                messages=[
+                    {"role": "system", "content": "Você é um perito grafotécnico especializado em análise de assinaturas."},
+                    {"role": "user", "content": openai_prompt}
+                ],
+                max_tokens=300,
+                temperature=0.7,
             )
-            instance.automatic_result = ai_result.get('comments', '')
-            instance.save()
+            automatic_result = response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Erro na chamada OpenAI ChatCompletion: {e}", exc_info=True)
+            automatic_result = "Não foi possível gerar a análise automática."
+
+        serializer.save(
+            analysis=analysis,
+            similarity_score=similarity_score,
+            automatic_result=automatic_result
+        )
 
 
 # --- Views para DocumentVersion ---

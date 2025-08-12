@@ -173,3 +173,5 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'seu_email@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'sua_senha_de_app')
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
