@@ -26,7 +26,7 @@ from drf_yasg import openapi
 from analysis import utils
 from .ml_service import calculate_signature_similarity
 import openai
-from .permissions import IsCommentAuthorOrReadOnly, IsCaseMember
+from .permissions import IsCasePeritoOrReadOnly, IsCommentAuthorOrReadOnly, IsCaseMember
 from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -56,10 +56,13 @@ class QuesitoListCreateView(generics.ListCreateAPIView):
 
 class QuesitoRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = QuesitoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsCasePeritoOrReadOnly]
 
     def get_queryset(self):
-        return Quesito.objects.filter(analysis__case__user=self.request.user)
+        user = self.request.user
+        if user.is_staff:
+            return Quesito.objects.all()
+        return Quesito.objects.filter(case__perito=user)
 
     def perform_update(self, serializer):
         serializer.save(answered_by=self.request.user, answered_at=timezone.now())

@@ -3,6 +3,10 @@ from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion, For
 from cases.serializers import DocumentSerializer  # reaproveite se existir
 from cases.models import Document
 from .models import Comment
+from rest_framework import generics, permissions
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
+
 
 # --- PatternSerializer ---
 class PatternSerializer(serializers.ModelSerializer):
@@ -21,9 +25,38 @@ class QuesitoSerializer(serializers.ModelSerializer):
         model = Quesito
         fields = [
             'id', 'case', 'requester', 'text', 'created_at',
-            'answered_text', 'answered_by', 'answered_by_email', 'answered_at'
+            'answered_text', 'answered_by_email',
         ]
-        read_only_fields = ['created_at', 'answered_by_email', 'answered_at']
+        read_only_fields = ['created_at', 'answered_by_email']
+        
+    def update(self, instance, validated_data):
+        answered_text = validated_data.get('answered_text', None)
+
+        # Se tem resposta nova, atualiza answered_by e answered_at
+        if answered_text is not None and answered_text != instance.answered_text:
+            instance.answered_text = answered_text
+            instance.answered_by = self.context['request'].user
+            instance.answered_at = timezone.now()
+            instance.save()
+            return instance
+
+        return super().update(instance, validated_data)
+    
+class QuesitoListCreateView(generics.ListCreateAPIView):
+    serializer_class = QuesitoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Quesito.objects.all()
+        return Quesito.objects.filter(case__perito=user)
+
+    def perform_create(self, serializer):
+        # Apenas staff pode criar quesitos
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Somente usuários com permissão podem criar quesitos.")
+        serializer.save()
 
 # --- ComparisonSerializer (read-only serializer para GET) ---
 class ComparisonSerializer(serializers.ModelSerializer):
