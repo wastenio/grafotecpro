@@ -1,10 +1,48 @@
 import api from './axios'; // default export do axios configurado
+import axios from "axios";
 
 export const AuthAPI = {
-  login: (email: string, password: string) =>
-    api.post('/auth/jwt/create/', { email, password }).then(r => r.data),
-  me: () => api.get('/auth/me/').then(r => r.data),
+  // Login: retorna token e dados do usuário
+  async login(email: string, password: string) {
+    const { data } = await axios.post("/auth/login", { email, password });
+
+    // Se a API retornar access e refresh (padrão JWT)
+    if (data.access) {
+      localStorage.setItem("access", data.access);
+    }
+    if (data.refresh) {
+      localStorage.setItem("refresh", data.refresh);
+    }
+
+    // Se retornar também o usuário logado
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
+    return data; // { access, refresh, user }
+  },
+
+  // Buscar usuário logado
+  async me() {
+    const { data } = await axios.get("/auth/me");
+    return data; // { id, name, email, ... }
+  },
+
+  // Logout
+  async logout() {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+
+    // Caso backend tenha endpoint de logout
+    try {
+      await axios.post("/auth/logout");
+    } catch {
+      // Ignorar erros de logout no backend
+    }
+  },
 };
+
 
 export const CasesAPI = {
   list: (params?: any) => api.get('/cases/', { params }).then(r => r.data),

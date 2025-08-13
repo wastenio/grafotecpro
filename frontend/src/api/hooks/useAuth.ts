@@ -1,48 +1,72 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/api/hooks/useAuth.ts
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AuthAPI } from "../client";
+import { useNavigate } from "react-router-dom";
 
-interface LoginData {
-  email: string; // ajuste para 'email' conforme backend
-  password: string;
-}
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  // adicione aqui outros campos retornados pelo backend
+};
 
-export function useAuth() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Hook para buscar usuário logado
+export const useCurrentUser = () => {
+  return useQuery<User>({
+    queryKey: ["currentUser"],
+    queryFn: async () => {
+      const user = await AuthAPI.me();
+      return user;
+    },
+    retry: false, // evita loops caso não esteja autenticado
+  });
+};
+
+// Hook para login
+export const useLogin = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const login = async (data: LoginData) => {
-    try {
-      setLoading(true);
-      setError(null);
+  return useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const data = await AuthAPI.login(email, password);
+      // salva tokens
+      if (data.token) {
+        localStorage.setItem("access", data.token);
+      } else if (data.access) {
+        // caso use JWT padrão com access/refresh
+        localStorage.setItem("access", data.access);
+        if (data.refresh) {
+          localStorage.setItem("refresh", data.refresh);
+        }
+      }
+      return data.user || data;
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(["currentUser"], user);
+      navigate("/"); // redireciona para home ou dashboard
+    },
+  });
+};
 
-      // Usando o AuthAPI do client.ts
-      const response = await AuthAPI.login(data.email, data.password);
+// Hook para logout
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-      setUser(response.user || null); // ajusta de acordo com a resposta do backend
-      localStorage.setItem("token", response.token);
-
-      navigate("/cases"); // redireciona após login
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erro no login");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("token");
-    navigate("/login");
-  };
-
-  return {
-    user,
-    login,
-    logout,
-    loading,
-    error,
-  };
-}
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        await AuthAPI.logout();
+      } catch {
+        // backend pode não ter endpoint de logout
+      }
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+    },
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["currentUser"] });
+      navigate("/login");
+    },
+  });
+};
