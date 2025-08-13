@@ -4,6 +4,12 @@ import { CasesAPI } from '../client';
 import { CaseSchema, type Case } from '../schemas';
 import { z } from 'zod';
 
+// Payload esperado para criar caso
+interface CreateCasePayload {
+  title: string;
+  description?: string;
+}
+
 /**
  * Hook para obter um único caso pelo ID
  */
@@ -37,12 +43,11 @@ export const useCreateCase = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: CreateCasePayload) => {
       const data = await CasesAPI.create(payload);
-      return CaseSchema.parse(data);
+      return CaseSchema.parse(data); // validação Zod
     },
     onSuccess: () => {
-      // Ajuste correto para React Query v4
       queryClient.invalidateQueries({ queryKey: ['cases'] });
     },
   });
