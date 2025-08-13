@@ -14,7 +14,7 @@ export type User = z.infer<typeof UserSchema>;
 // Case
 export const CaseSchema = z.object({
   id: z.number(),
-  title: z.string(),
+  title: z.string().min(1),
   description: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -26,7 +26,7 @@ export type Case = z.infer<typeof CaseSchema>;
 export const AnalysisSchema = z.object({
   id: z.number(),
   case: CaseSchema,
-  title: z.string(),
+  title: z.string().min(1),
   methodology: z.string().optional(),
   conclusion: z.string().optional(),
   created_at: z.string(),
@@ -39,7 +39,7 @@ export type Analysis = z.infer<typeof AnalysisSchema>;
 export const QuesitoSchema = z.object({
   id: z.number(),
   case_id: z.number(),
-  question: z.string(),
+  question: z.string().min(1),
   answer: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -51,7 +51,7 @@ export type Quesito = z.infer<typeof QuesitoSchema>;
 export const ComparisonSchema = z.object({
   id: z.number(),
   analysis_id: z.number(),
-  similarity_score: z.number().optional(),
+  similarity_score: z.number().nullable(),
   result: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -63,7 +63,7 @@ export type Comparison = z.infer<typeof ComparisonSchema>;
 export const CommentSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
     id: z.number(),
-    content: z.string(),
+    content: z.string().min(1),
     author: UserSchema,
     parent: CommentSchema.optional().nullable(),
     created_at: z.string(),
@@ -78,7 +78,7 @@ export const DocumentVersionSchema = z.object({
   id: z.number(),
   document_id: z.number(),
   version_number: z.number(),
-  file_url: z.string(),
+  file_url: z.string().url(),
   changelog: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),

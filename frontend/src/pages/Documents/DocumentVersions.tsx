@@ -1,83 +1,73 @@
-import { useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DocumentsAPI } from '../../api/client';
-import { Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+// src/pages/documents/DocumentVersions.tsx
+import { useParams } from "react-router-dom";
+import { useDocumentVersions, useUploadDocumentVersion, useDownloadDocumentVersion } from "../../api/hooks/useDocuments";
+import { useState } from "react";
+import { EmptyState } from "../../components/common/EmptyState";
 
-interface DocumentVersion {
-  id: number;
-  file_name: string;
-  changelog: string;
-}
-
-export default function DocumentVersions() {
+export const DocumentVersions = () => {
   const { documentId } = useParams<{ documentId: string }>();
-  const numericDocumentId = Number(documentId);
-  const queryClient = useQueryClient();
+  const { data: versions, isLoading, error } = useDocumentVersions(Number(documentId));
+  const uploadMutation = useUploadDocumentVersion(Number(documentId));
+  const downloadFn = useDownloadDocumentVersion();
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [changelog, setChangelog] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [changelog, setChangelog] = useState("");
 
-  const { data: versions } = useQuery<DocumentVersion[]>({
-    queryKey: ['docVersions', numericDocumentId] as const,
-    queryFn: () => DocumentsAPI.versions(numericDocumentId),
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedFile) throw new Error('Selecione um arquivo');
-      return DocumentsAPI.uploadVersion(numericDocumentId, selectedFile, changelog);
-    },
-    onSuccess: () => {
-      setSelectedFile(null);
-      setChangelog('');
-      queryClient.invalidateQueries({ queryKey: ['docVersions', numericDocumentId] });
-    }
-  });
-
-  const download = async (versionId: number, filename: string) => {
-    try {
-      const blob: Blob = await DocumentsAPI.downloadVersion(versionId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Erro ao baixar o arquivo:', error);
+  const handleUpload = () => {
+    if (file) {
+      uploadMutation.mutate({ file, changelog });
+      setFile(null);
+      setChangelog("");
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFile(e.target.files?.[0] ?? null);
-  };
+  if (isLoading) return <p>Carregando versões...</p>;
+  if (error) return <p>Erro ao carregar versões</p>;
+
+  if (!versions || versions.length === 0) return <EmptyState message="Nenhuma versão encontrada" />;
 
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom>Versões do Documento #{documentId}</Typography>
+    <div>
+      <h1>Versões do Documento #{documentId}</h1>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-        <input type="file" onChange={handleFileChange} />
-        <TextField
-          placeholder="Descrição da versão"
+      <div className="mb-3">
+        <input type="file" onChange={(e) => e.target.files && setFile(e.target.files[0])} />
+        <input
+          type="text"
+          placeholder="Changelog"
           value={changelog}
           onChange={(e) => setChangelog(e.target.value)}
+          className="form-control mt-1"
         />
-        <Button variant="contained" onClick={() => uploadMutation.mutate()}>
-          Enviar nova versão
-        </Button>
-      </Box>
+        <button className="btn btn-primary mt-2" onClick={handleUpload}>Upload</button>
+      </div>
 
-      {versions?.map((v) => (
-        <Card key={v.id} sx={{ mb: 1 }}>
-          <CardContent>
-            <Typography variant="subtitle1">{v.file_name}</Typography>
-            <Typography variant="body2" color="text.secondary">{v.changelog}</Typography>
-            <Button onClick={() => download(v.id, v.file_name)}>Download</Button>
-          </CardContent>
-        </Card>
-      ))}
-    </Box>
+      <table className="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Versão</th>
+            <th>Changelog</th>
+            <th>Criado em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {versions.map((v) => (
+            <tr key={v.id}>
+              <td>{v.id}</td>
+              <td>{v.version_number}</td>
+              <td>{v.changelog ?? "-"}</td>
+              <td>{new Date(v.created_at).toLocaleString()}</td>
+              <td>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadFn(v.id)}>
+                  Download
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
-}
+};

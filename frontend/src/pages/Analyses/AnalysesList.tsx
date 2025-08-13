@@ -1,37 +1,45 @@
-import { useQuery } from '@tanstack/react-query';
-import { AnalysesAPI } from '../../api/client';
-import { Box, Button, Card, CardContent, Grid, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+// src/pages/analyses/AnalysesList.tsx
+import { useParams, Link } from "react-router-dom";
+import { useAnalysesByCase } from "../../api/hooks/useAnalyses";
+import { EmptyState } from "../../components/common/EmptyState";
 
-export default function AnalysesList() {
-  const [search, setSearch] = useState('');
-  const [caseIdFilter, setCaseIdFilter] = useState('');
-  const { data } = useQuery({ queryKey: ['analyses', search, caseIdFilter], queryFn: () => AnalysesAPI.list({ search, case: caseIdFilter }) });
+export const AnalysesList = () => {
+  const { caseId } = useParams<{ caseId: string }>();
+  const { data: analyses, isLoading, error } = useAnalysesByCase(Number(caseId));
+
+  if (isLoading) return <p>Carregando análises...</p>;
+  if (error) return <p>Erro ao carregar análises</p>;
+
+  if (!analyses || analyses.length === 0) return <EmptyState message="Nenhuma análise encontrada" />;
 
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom>Análises</Typography>
-
-      <Box sx={{ display:'flex', gap:2, mb:2 }}>
-        <TextField placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} />
-        <TextField placeholder="ID do Caso..." value={caseIdFilter} onChange={e=>setCaseIdFilter(e.target.value)} />
-        <Button component={Link} to="/cases">Ver Casos</Button>
-      </Box>
-
-      <Grid container spacing={2}>
-        {(data ?? []).map((analysis:any) => (
-          <Grid item xs={12} md={6} lg={4} key={analysis.id}>
-            <Card component={Link} to={`/analyses/${analysis.id}`} sx={{ textDecoration:'none' }}>
-              <CardContent>
-                <Typography variant="subtitle1">Análise #{analysis.id}</Typography>
-                <Typography variant="body2">Caso: {analysis.case}</Typography>
-                <Typography variant="body2">{analysis.summary ?? 'Sem resumo'}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
+    <div>
+      <h1>Análises do Caso #{caseId}</h1>
+      <table className="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Criado em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {analyses.map((a) => (
+            <tr key={a.id}>
+              <td>{a.id}</td>
+              <td>{a.title}</td>
+              <td>{new Date(a.created_at).toLocaleDateString()}</td>
+              <td>
+                <Link to={`/analyses/${a.id}`}>Detalhes</Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <Link to={`/cases/${caseId}/analyses/create`} className="btn btn-primary mt-3">
+        Criar Nova Análise
+      </Link>
+    </div>
   );
-}
+};
