@@ -1,4 +1,4 @@
-import api from './axios';
+import api from './axios'; // default export do axios configurado
 
 export const AuthAPI = {
   login: (email: string, password: string) =>
@@ -14,7 +14,7 @@ export const CasesAPI = {
     const form = new FormData();
     form.append('final_report', file);
     return api.post(`/analysis/cases/${caseId}/report/`, form).then(r => r.data);
-  }
+  },
 };
 
 export const AnalysesAPI = {
@@ -57,6 +57,10 @@ export const DocumentsAPI = {
     if (changelog) form.append('changelog', changelog);
     return api.post(`/analysis/documents/${documentId}/versions/`, form).then(r => r.data);
   },
-  downloadVersion: (versionId: number) =>
-    api.get(`/analysis/documents/versions/${versionId}/download/`, { responseType: 'blob' }),
+  async downloadVersion(versionId: number): Promise<Blob> {
+    const response = await api.get(`/documents/versions/${versionId}/download/`, {
+      responseType: 'blob', // força retorno como Blob
+    });
+    return response.data; // pega apenas o Blob
+  },
 };
