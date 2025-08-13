@@ -1,25 +1,29 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QuesitosAPI } from '../client';
+import { QuesitoSchema, type Quesito } from '../schemas';
 
-export const useQuesitos = () => {
-  const [quesitos, setQuesitos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchByCase = async (caseId: number) => {
-    setLoading(true);
-    try {
+// Listar quesitos de um caso
+export const useQuesitosByCase = (caseId: number) => {
+  return useQuery<Quesito[]>({
+    queryKey: ['quesitos', caseId],
+    queryFn: async () => {
       const data = await QuesitosAPI.listByCase(caseId);
-      setQuesitos(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data.map(QuesitoSchema.parse);
+    },
+  });
+};
 
-  const updateQuesito = async (id: number, payload: any) => {
-    const data = await QuesitosAPI.update(id, payload);
-    setQuesitos(prev => prev.map(q => (q.id === id ? data : q)));
-    return data;
-  };
+// Atualizar/responder quesito
+export const useUpdateQuesito = () => {
+  const queryClient = useQueryClient();
 
-  return { quesitos, loading, fetchByCase, updateQuesito };
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: any }) => {
+      const data = await QuesitosAPI.update(id, payload);
+      return QuesitoSchema.parse(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quesitos'] });
+    },
+  });
 };

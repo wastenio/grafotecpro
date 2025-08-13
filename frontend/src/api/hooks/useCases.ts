@@ -1,33 +1,49 @@
-import { useState } from 'react';
+// src/api/hooks/useCases.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CasesAPI } from '../client';
+import { CaseSchema, type Case } from '../schemas';
+import { z } from 'zod';
 
+/**
+ * Hook para obter um único caso pelo ID
+ */
+export const useCase = (caseId: number) => {
+  return useQuery<Case>({
+    queryKey: ['cases', caseId],
+    queryFn: async () => {
+      const data = await CasesAPI.get(caseId);
+      return CaseSchema.parse(data); // validação com Zod
+    },
+  });
+};
+
+/**
+ * Hook para listar todos os casos
+ */
 export const useCases = () => {
-  const [cases, setCases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  return useQuery<Case[]>({
+    queryKey: ['cases'],
+    queryFn: async () => {
+      const data = await CasesAPI.list();
+      return z.array(CaseSchema).parse(data); // validação com Zod
+    },
+  });
+};
 
-  const fetchCases = async (params?: any) => {
-    setLoading(true);
-    try {
-      const data = await CasesAPI.list(params);
-      setCases(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+/**
+ * Hook para criar um novo caso
+ */
+export const useCreateCase = () => {
+  const queryClient = useQueryClient();
 
-  const createCase = async (payload: any) => {
-    const data = await CasesAPI.create(payload);
-    setCases(prev => [...prev, data]);
-    return data;
-  };
-
-  const getCase = async (id: number) => {
-    return await CasesAPI.get(id);
-  };
-
-  const uploadReport = async (caseId: number, file: File) => {
-    return await CasesAPI.uploadReport(caseId, file);
-  };
-
-  return { cases, loading, fetchCases, createCase, getCase, uploadReport };
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const data = await CasesAPI.create(payload);
+      return CaseSchema.parse(data);
+    },
+    onSuccess: () => {
+      // Ajuste correto para React Query v4
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+    },
+  });
 };

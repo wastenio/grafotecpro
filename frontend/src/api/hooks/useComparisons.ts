@@ -1,29 +1,40 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ComparisonsAPI } from '../client';
+import { ComparisonSchema, type Comparison } from '../schemas';
 
-export const useComparisons = () => {
-  const [comparisons, setComparisons] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchByAnalysis = async (analysisId: number) => {
-    setLoading(true);
-    try {
+// Listar comparações de uma análise
+export const useComparisonsByAnalysis = (analysisId: number) => {
+  return useQuery<Comparison[]>({
+    queryKey: ['comparisons', analysisId],
+    queryFn: async () => {
       const data = await ComparisonsAPI.listByAnalysis(analysisId);
-      setComparisons(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data.map(ComparisonSchema.parse);
+    },
+  });
+};
 
-  const createComparison = async (analysisId: number, payload: any) => {
-    const data = await ComparisonsAPI.create(analysisId, payload);
-    setComparisons(prev => [...prev, data]);
-    return data;
-  };
+// Criar comparação
+export const useCreateComparison = (analysisId: number) => {
+  const queryClient = useQueryClient();
 
-  const getDetailResult = async (comparisonId: number) => {
-    return await ComparisonsAPI.detailResult(comparisonId);
-  };
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const data = await ComparisonsAPI.create(analysisId, payload);
+      return ComparisonSchema.parse(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comparisons', analysisId] });
+    },
+  });
+};
 
-  return { comparisons, loading, fetchByAnalysis, createComparison, getDetailResult };
+// Obter resultado detalhado
+export const useComparisonDetail = (comparisonId: number) => {
+  return useQuery<Comparison>({
+    queryKey: ['comparison', comparisonId],
+    queryFn: async () => {
+      const data = await ComparisonsAPI.detailResult(comparisonId);
+      return ComparisonSchema.parse(data);
+    },
+  });
 };

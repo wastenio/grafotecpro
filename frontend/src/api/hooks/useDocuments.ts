@@ -1,29 +1,29 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DocumentsAPI } from '../client';
+import { DocumentVersionSchema, type DocumentVersion } from '../schemas';
 
-export const useDocuments = () => {
-  const [versions, setVersions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchVersions = async (documentId: number) => {
-    setLoading(true);
-    try {
+// Listar versões de documento
+export const useDocumentVersions = (documentId: number) => {
+  return useQuery<DocumentVersion[], Error>({
+    queryKey: ['documents', documentId], // <<< queryKey deve ser dentro do objeto
+    queryFn: async () => {
       const data = await DocumentsAPI.versions(documentId);
-      setVersions(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data.map(DocumentVersionSchema.parse);
+    },
+  });
+};
 
-  const uploadVersion = async (documentId: number, file: File, changelog?: string) => {
-    const data = await DocumentsAPI.uploadVersion(documentId, file, changelog);
-    setVersions(prev => [...prev, data]);
-    return data;
-  };
+// Upload de nova versão
+export const useUploadDocumentVersion = (documentId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, changelog }: { file: File; changelog?: string }) =>
+      DocumentsAPI.uploadVersion(documentId, file, changelog),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents', documentId] }),
+  });
+};
 
-  const downloadVersion = async (versionId: number) => {
-    return await DocumentsAPI.downloadVersion(versionId);
-  };
-
-  return { versions, loading, fetchVersions, uploadVersion, downloadVersion };
+// Download versão
+export const useDownloadDocumentVersion = () => {
+  return (versionId: number) => DocumentsAPI.downloadVersion(versionId);
 };

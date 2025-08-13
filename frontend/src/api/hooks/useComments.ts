@@ -1,36 +1,54 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CommentsAPI } from '../client';
+import { CommentSchema } from '../schemas';
+import type { Comment } from '../schemas';
 
+// Listar comentários
 export const useComments = () => {
-  const [comments, setComments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  return useQuery<Comment[]>({
+    queryKey: ['comments'],
+    queryFn: async () => {
+      const data = await CommentsAPI.list();
+      return data.map(CommentSchema.parse);
+    },
+  });
+};
 
-  const fetchComments = async (params?: any) => {
-    setLoading(true);
-    try {
-      const data = await CommentsAPI.list(params);
-      setComments(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+// Criar comentário
+export const useCreateComment = () => {
+  const queryClient = useQueryClient();
 
-  const createComment = async (payload: any) => {
-    const data = await CommentsAPI.create(payload);
-    setComments(prev => [...prev, data]);
-    return data;
-  };
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const data = await CommentsAPI.create(payload);
+      return CommentSchema.parse(data);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments'] }),
+  });
+};
 
-  const updateComment = async (id: number, payload: any) => {
-    const data = await CommentsAPI.update(id, payload);
-    setComments(prev => prev.map(c => (c.id === id ? data : c)));
-    return data;
-  };
+// Atualizar comentário
+export const useUpdateComment = () => {
+  const queryClient = useQueryClient();
 
-  const removeComment = async (id: number) => {
-    await CommentsAPI.remove(id);
-    setComments(prev => prev.filter(c => c.id !== id));
-  };
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: any }) => {
+      const data = await CommentsAPI.update(id, payload);
+      return CommentSchema.parse(data);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments'] }),
+  });
+};
 
-  return { comments, loading, fetchComments, createComment, updateComment, removeComment };
+// Remover comentário
+export const useDeleteComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await CommentsAPI.remove(id);
+      return id; // retorna o ID removido, se precisar
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments'] }),
+  });
 };

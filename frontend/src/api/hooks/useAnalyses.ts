@@ -1,33 +1,41 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnalysesAPI } from '../client';
+import { AnalysisSchema, type Analysis } from '../schemas';
 
-export const useAnalyses = () => {
-  const [analyses, setAnalyses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+// Listar análises de um caso
+export const useAnalysesByCase = (caseId: number) => {
+  return useQuery<Analysis[]>({
+    queryKey: ['analyses', caseId],
+    queryFn: async () => {
+      const data = await AnalysesAPI.listByCase(caseId);
+      return data.map(AnalysisSchema.parse);
+    },
+  });
+};
 
-  const fetchByCase = async (caseId: number, params?: any) => {
-    setLoading(true);
-    try {
-      const data = await AnalysesAPI.listByCase(caseId, params);
-      setAnalyses(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+// Obter análise específica
+export const useAnalysis = (analysisId: number) => {
+  return useQuery<Analysis>({
+    queryKey: ['analysis', analysisId],
+    queryFn: async () => {
+      const data = await AnalysesAPI.get(analysisId);
+      return AnalysisSchema.parse(data);
+    },
+  });
+};
 
-  const createAnalysis = async (caseId: number, payload: any) => {
-    const data = await AnalysesAPI.create(caseId, payload);
-    setAnalyses(prev => [...prev, data]);
-    return data;
-  };
+// Criar nova análise
+export const useCreateAnalysis = (caseId: number) => {
+  const queryClient = useQueryClient();
 
-  const getAnalysis = async (id: number) => {
-    return await AnalysesAPI.get(id);
-  };
-
-  const exportPdf = async (caseId: number) => {
-    return await AnalysesAPI.exportPdf(caseId);
-  };
-
-  return { analyses, loading, fetchByCase, createAnalysis, getAnalysis, exportPdf };
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const data = await AnalysesAPI.create(caseId, payload);
+      return AnalysisSchema.parse(data);
+    },
+    onSuccess: () => {
+      // Ajuste para React Query v4
+      queryClient.invalidateQueries({ queryKey: ['analyses', caseId] });
+    },
+  });
 };
