@@ -8,7 +8,8 @@ export const useComparisonsByAnalysis = (analysisId: number) => {
     queryKey: ['comparisons', analysisId],
     queryFn: async () => {
       const data = await ComparisonsAPI.listByAnalysis(analysisId);
-      return data.map(ComparisonSchema.parse);
+      // Ajuste: usar 'unknown' para cada item antes do parse
+      return data.map((item: unknown) => ComparisonSchema.parse(item));
     },
   });
 };

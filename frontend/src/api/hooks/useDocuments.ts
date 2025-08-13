@@ -5,10 +5,10 @@ import { DocumentVersionSchema, type DocumentVersion } from '../schemas';
 // Listar versões de documento
 export const useDocumentVersions = (documentId: number) => {
   return useQuery<DocumentVersion[], Error>({
-    queryKey: ['documents', documentId], // <<< queryKey deve ser dentro do objeto
+    queryKey: ['documents', documentId],
     queryFn: async () => {
       const data = await DocumentsAPI.versions(documentId);
-      return data.map(DocumentVersionSchema.parse);
+      return data.map((item: unknown) => DocumentVersionSchema.parse(item));
     },
   });
 };
@@ -17,8 +17,10 @@ export const useDocumentVersions = (documentId: number) => {
 export const useUploadDocumentVersion = (documentId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ file, changelog }: { file: File; changelog?: string }) =>
-      DocumentsAPI.uploadVersion(documentId, file, changelog),
+    mutationFn: async ({ file, changelog }: { file: File; changelog?: string }) => {
+      const data = await DocumentsAPI.uploadVersion(documentId, file, changelog);
+      return DocumentVersionSchema.parse(data);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents', documentId] }),
   });
 };

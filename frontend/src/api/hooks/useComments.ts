@@ -9,7 +9,7 @@ export const useComments = () => {
     queryKey: ['comments'],
     queryFn: async () => {
       const data = await CommentsAPI.list();
-      return data.map(CommentSchema.parse);
+      return data.map((item: unknown) => CommentSchema.parse(item));
     },
   });
 };
