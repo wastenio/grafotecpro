@@ -1,39 +1,45 @@
-import { Box, Button, Paper, TextField, Typography } from '@mui/material';
-import { useForm } from 'react-hook-form';
-import { useLogin, useMe } from '../../api/hooks/useAuth';
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import React, { useState } from "react";
+import { useAuth } from "../../api/hooks/useAuth";
 
-type Form = { email: string; password: string; };
+const Login: React.FC = () => {
+  const { login, error, loading } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-export default function Login() {
-  const { register, handleSubmit } = useForm<Form>();
-  const login = useLogin();
-  const navigate = useNavigate();
-  const access = useAuthStore(s => s.access);
-  const me = useMe(!!access);
-
-  useEffect(() => {
-    if (me.data || access) navigate('/cases');
-  }, [me.data, access, navigate]);
-
-  const onSubmit = (data: Form) => login.mutate(data, {
-    onSuccess: () => navigate('/cases'),
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await login({ username, password });
+  };
 
   return (
-    <Box sx={{ display:'grid', placeItems:'center', height:'100vh' }}>
-      <Paper sx={{ p:4, width: 360 }}>
-        <Typography variant="h6" gutterBottom>Entrar</Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <TextField label="E-mail" {...register('email')} />
-          <TextField label="Senha" type="password" {...register('password')} />
-          <Button type="submit" fullWidth sx={{ mt:2 }} disabled={login.isLoading}>
-            Acessar
-          </Button>
-        </form>
-      </Paper>
-    </Box>
+    <div className="flex justify-center items-center h-screen">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm p-6 bg-white shadow-md rounded">
+        <h2 className="text-2xl font-bold mb-4">Login</h2>
+        {error && <p className="text-red-500 mb-2">{error}</p>}
+        <input
+          type="text"
+          placeholder="Usuário"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full mb-2 p-2 border rounded"
+        />
+        <input
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full mb-4 p-2 border rounded"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+        >
+          {loading ? "Entrando..." : "Entrar"}
+        </button>
+      </form>
+    </div>
   );
-}
+};
+
+export default Login;
