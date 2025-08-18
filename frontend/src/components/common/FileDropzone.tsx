@@ -1,16 +1,20 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
+import type { ReactNode } from "react";
 import { useDropzone, type Accept } from "react-dropzone";
+
 
 interface FileDropzoneProps {
   onFileUpload: (files: File[]) => void;
   accept?: string; // ex: ".pdf,.docx"
   multiple?: boolean;
+  children?: ReactNode;
 }
 
 const FileDropzone: React.FC<FileDropzoneProps> = ({
   onFileUpload,
   accept,
   multiple = false,
+  children,
 }) => {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -19,14 +23,14 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
     [onFileUpload]
   );
 
-  // Converte string ".pdf,.docx" em formato Accept do react-dropzone
-  const acceptObj: Accept | undefined = accept
-    ? accept.split(",").reduce((acc, ext) => {
-        const mimeType = ext.trim(); // aqui podemos melhorar para mapear MIME reais se precisar
-        acc[mimeType] = [];
-        return acc;
-      }, {} as Accept)
-    : undefined;
+  const acceptObj: Accept | undefined = useMemo(() => {
+    if (!accept) return undefined;
+    return accept.split(",").reduce((acc, ext) => {
+      const trimmed = ext.trim();
+      acc[trimmed] = [];
+      return acc;
+    }, {} as Accept);
+  }, [accept]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -41,7 +45,9 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
         ${isDragActive ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-white"}`}
     >
       <input {...getInputProps()} />
-      {isDragActive ? (
+      {children ? (
+        children
+      ) : isDragActive ? (
         <p className="text-blue-600">Solte os arquivos aqui...</p>
       ) : (
         <p>

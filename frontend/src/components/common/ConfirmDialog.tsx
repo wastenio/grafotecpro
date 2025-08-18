@@ -1,5 +1,5 @@
 // src/components/common/ConfirmDialog.tsx
-import React from "react";
+import React, { type ReactNode } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 
@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -21,10 +22,18 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelLabel = "Cancelar",
   onConfirm,
   onCancel,
+  children,
 }) => {
+  const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onCancel}>
+      <Dialog
+        as="div"
+        className="relative z-10"
+        onClose={onCancel}
+        initialFocus={confirmButtonRef}
+      >
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -56,7 +65,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   {title}
                 </Dialog.Title>
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">{description}</p>
+                  {children ?? <p className="text-sm text-gray-500">{description}</p>}
                 </div>
 
                 <div className="mt-4 flex justify-end gap-2">
@@ -68,6 +77,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     {cancelLabel}
                   </button>
                   <button
+                    ref={confirmButtonRef}
                     type="button"
                     className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                     onClick={onConfirm}
@@ -83,5 +93,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     </Transition>
   );
 };
+
 
 export default ConfirmDialog;
