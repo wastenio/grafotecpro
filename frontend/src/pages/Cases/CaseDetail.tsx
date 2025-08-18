@@ -1,13 +1,15 @@
 // src/pages/cases/CaseDetail.tsx
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCase } from "@/api/hooks/useCases";
 import { useAnalysesByCase } from "@/api/hooks/useAnalyses";
 import { useQuesitosByCase } from "@/api/hooks/useQuesitos";
+import { DataTable } from "@/components/common/DataTable";
 import EmptyState from "@/components/common/EmptyState";
 
 export const CaseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const caseId = Number(id);
+  const navigate = useNavigate();
 
   const { data: caseData, isLoading: loadingCase, error: errorCase } = useCase(caseId);
   const { data: analyses, isLoading: loadingAnalyses } = useAnalysesByCase(caseId);
@@ -17,13 +19,33 @@ export const CaseDetail = () => {
   if (errorCase) return <p>Erro ao carregar caso</p>;
   if (!caseData) return <p>Caso não encontrado</p>;
 
-  return (
-    <div>
-      <h1>Detalhes do Caso: {caseData.title}</h1>
-      {caseData.description && <p>{caseData.description}</p>}
+  const handleCreateAnalysis = () => navigate(`/cases/${caseId}/analyses/create`);
+  const handleCreateQuesito = () => navigate(`/cases/${caseId}/quesitos/create`);
 
-      <section className="mt-4">
-        <h2>Análises</h2>
+  return (
+    <div className="p-4">
+      {/* Painel de Detalhes do Caso */}
+      <div className="bg-white shadow rounded p-4 mb-6">
+        <h1 className="text-2xl font-bold mb-2">{caseData.title}</h1>
+        {caseData.description && <p className="mb-2">{caseData.description}</p>}
+        <div className="text-sm text-gray-600">
+          <p>Criado em: {new Date(caseData.created_at).toLocaleDateString()}</p>
+          <p>Atualizado em: {new Date(caseData.updated_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      {/* Seção de Análises */}
+      <section className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-semibold">Análises</h2>
+          <button
+            onClick={handleCreateAnalysis}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Criar Nova Análise
+          </button>
+        </div>
+
         {loadingAnalyses ? (
           <p>Carregando análises...</p>
         ) : !analyses || analyses.length === 0 ? (
@@ -31,24 +53,53 @@ export const CaseDetail = () => {
             title="Nenhuma análise encontrada"
             description="Ainda não existem análises cadastradas para este caso."
             actionLabel="Criar nova análise"
-            onAction={() => console.log("Abrir modal de nova análise")}
+            onAction={handleCreateAnalysis}
           />
         ) : (
-          <ul>
-            {analyses.map((analysis) => (
-              <li key={analysis.id}>
-                <Link to={`/analyses/${analysis.id}`}>{analysis.title}</Link>
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            data={quesitos ?? []}
+            columns={[
+              {
+                key: "question",
+                label: "Pergunta",
+                accessor: "question",
+                render: (q) => (
+                  <Link to={`/quesitos/${q.id}`} className="text-blue-600 hover:underline">
+                    {q.question}
+                  </Link>
+                ),
+              },
+              {
+                key: "created_at",
+                label: "Criado em",
+                accessor: "created_at",
+                render: (q) => new Date(q.created_at).toLocaleDateString(),
+              },
+              {
+                key: "updated_at",
+                label: "Atualizado em",
+                accessor: "updated_at",
+                render: (q) => new Date(q.updated_at).toLocaleDateString(),
+              },
+            ]}
+          />
+
+
         )}
-        <Link to={`/cases/${caseId}/analyses/create`} className="btn btn-primary mt-2">
-          Criar Nova Análise
-        </Link>
       </section>
 
-      <section className="mt-4">
-        <h2>Quesitos</h2>
+      {/* Seção de Quesitos */}
+      <section>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-semibold">Quesitos</h2>
+          <button
+            onClick={handleCreateQuesito}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Criar Novo Quesito
+          </button>
+        </div>
+
         {loadingQuesitos ? (
           <p>Carregando quesitos...</p>
         ) : !quesitos || quesitos.length === 0 ? (
@@ -56,20 +107,38 @@ export const CaseDetail = () => {
             title="Nenhum quesito encontrado"
             description="Ainda não existem quesitos cadastrados para este caso."
             actionLabel="Criar novo quesito"
-            onAction={() => console.log("Abrir modal de novo quesito")}
+            onAction={handleCreateQuesito}
           />
         ) : (
-          <ul>
-            {quesitos.map((q) => (
-              <li key={q.id}>
-                <Link to={`/quesitos/${q.id}`}>{q.question}</Link>
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            data={quesitos}
+            columns={[
+              {
+                key: "question",
+                label: "Pergunta",
+                accessor: "question",
+                render: (q) => (
+                  <Link to={`/quesitos/${q.id}`} className="text-blue-600 hover:underline">
+                    {q.question}
+                  </Link>
+                ),
+              },
+              {
+                key: "created_at",
+                label: "Criado em",
+                accessor: "created_at",
+                render: (q) => new Date(q.created_at).toLocaleDateString(),
+              },
+              {
+                key: "updated_at",
+                label: "Atualizado em",
+                accessor: "updated_at",
+                render: (q) => new Date(q.updated_at).toLocaleDateString(),
+              },
+            ]}
+          />
+
         )}
-        <Link to={`/cases/${caseId}/quesitos/create`} className="btn btn-primary mt-2">
-          Criar Novo Quesito
-        </Link>
       </section>
     </div>
   );
