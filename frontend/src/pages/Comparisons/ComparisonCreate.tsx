@@ -9,7 +9,9 @@ export const ComparisonCreate = () => {
   const [similarityScore, setSimilarityScore] = useState<number | null>(null);
   const [result, setResult] = useState("");
 
-  // Passa o analysisId obrigatoriamente
+  if (!analysisId) return <p>Analysis ID não fornecido.</p>;
+
+  // Passa o analysisId obrigatoriamente para o hook
   const mutation = useCreateComparison(Number(analysisId));
 
   const isPending = mutation.status === "pending";

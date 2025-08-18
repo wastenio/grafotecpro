@@ -10,7 +10,9 @@ export const AnalysisCreate = () => {
   const [methodology, setMethodology] = useState("");
   const [conclusion, setConclusion] = useState("");
 
-  // A mutation exige o caseId como argumento
+  if (!caseId) return <p>Case ID não fornecido.</p>;
+
+  // Passando caseId corretamente para o hook
   const mutation = useCreateAnalysis(Number(caseId));
 
   const isLoading = mutation.status === "pending";
@@ -19,11 +21,7 @@ export const AnalysisCreate = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await mutation.mutateAsync({
-        title,
-        methodology,
-        conclusion,
-      });
+      await mutation.mutateAsync({ title, methodology, conclusion });
       navigate(`/cases/${caseId}`);
     } catch (error) {
       console.error("Erro ao criar análise:", error);
