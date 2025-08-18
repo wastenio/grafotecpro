@@ -1,5 +1,4 @@
-// src/routes/index.tsx
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 
 // Pages
@@ -27,6 +26,12 @@ import { QuesitoCreate } from "../pages/Quesitos/QuesitoCreate";
 // Comentários (opcional)
 // import { CommentsList } from "../pages/Comments/CommentsList";
 
+const ProtectedLayout = () => (
+  <ProtectedRoute>
+    <Outlet />
+  </ProtectedRoute>
+);
+
 export default function AppRoutes() {
   return (
     <Router>
@@ -36,33 +41,29 @@ export default function AppRoutes() {
         <Route path="/logout" element={<Logout />} />
 
         {/* Rotas protegidas */}
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        >
+        <Route element={<ProtectedLayout />}>
+          {/* Dashboard */}
+          <Route path="/dashboard" element={<Dashboard />} />
+
           {/* Cases */}
-          <Route path="cases" element={<CasesList />} />
-          <Route path="cases/create" element={<CaseCreate />} />
-          <Route path="cases/:id" element={<CaseDetail />} />
+          <Route path="/cases" element={<CasesList />} />
+          <Route path="/cases/create" element={<CaseCreate />} />
+          <Route path="/cases/:id" element={<CaseDetail />} />
 
           {/* Analyses */}
-          <Route path="cases/:caseId/analyses" element={<AnalysesList />} />
-          <Route path="cases/:caseId/analyses/create" element={<AnalysisCreate />} />
-          <Route path="analyses/:analysisId" element={<AnalysisDetail />} />
+          <Route path="/cases/:caseId/analyses" element={<AnalysesList />} />
+          <Route path="/cases/:caseId/analyses/create" element={<AnalysisCreate />} />
+          <Route path="/analyses/:analysisId" element={<AnalysisDetail />} />
 
           {/* Comparisons */}
-          <Route path="analyses/:analysisId/comparisons/create" element={<ComparisonCreate />} />
+          <Route path="/analyses/:analysisId/comparisons/create" element={<ComparisonCreate />} />
 
           {/* Quesitos */}
-          <Route path="cases/:caseId/quesitos" element={<QuesitosList />} />
-          <Route path="cases/:caseId/quesitos/create" element={<QuesitoCreate />} />
+          <Route path="/cases/:caseId/quesitos" element={<QuesitosList />} />
+          <Route path="/cases/:caseId/quesitos/create" element={<QuesitoCreate />} />
 
           {/* Comentários (opcional) */}
-          {/* <Route path="comments" element={<CommentsList />} /> */}
+          {/* <Route path="/comments" element={<CommentsList />} /> */}
         </Route>
       </Routes>
     </Router>
