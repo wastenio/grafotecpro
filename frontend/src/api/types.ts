@@ -66,3 +66,13 @@ export interface ForgeryType {
   name: string;
   description?: string;
 }
+
+export interface DocumentVersionBrief {
+  id: number;
+  file_url: string;
+}
+
+export interface ComparisonDetail extends Comparison {
+  left_document_version?: DocumentVersionBrief | null;
+  right_document_version?: DocumentVersionBrief | null;
+}

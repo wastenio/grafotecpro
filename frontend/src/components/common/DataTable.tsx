@@ -6,7 +6,7 @@ export interface Column<T> {
     key: string;
     label: string;
     accessor?: keyof T;
-    render?: (value: any, row?: T) => ReactNode;
+    render?: (value: any, row: T) => ReactNode;
 }
 
 interface DataTableProps<T> {

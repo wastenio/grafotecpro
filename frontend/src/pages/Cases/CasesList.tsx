@@ -1,76 +1,50 @@
-// src/pages/cases/CaseDetail.tsx
-import { useParams, Link } from "react-router-dom";
-import { useCase } from "@/api/hooks/useCases";
-import { useAnalysesByCase } from "@/api/hooks/useAnalyses";
-import { useQuesitosByCase } from "@/api/hooks/useQuesitos";
+// src/pages/cases/CasesList.tsx
+import { Link } from "react-router-dom";
+import { useCases } from "../../api/hooks/useCases";
 import EmptyState from "@/components/common/EmptyState";
+import { DataTable, type Column } from "@/components/common/DataTable";
+import type { Case } from "@/api/schemas";
 
-export const CaseDetail = () => {
-  const { id } = useParams<{ id: string }>();
-  const caseId = Number(id);
+export const CasesList = () => {
+  const { data: cases, isLoading, error } = useCases();
 
-  const { data: caseData, isLoading: loadingCase, error: errorCase } = useCase(caseId);
-  const { data: analyses, isLoading: loadingAnalyses } = useAnalysesByCase(caseId);
-  const { data: quesitos, isLoading: loadingQuesitos } = useQuesitosByCase(caseId);
+  if (isLoading) return <p>Carregando casos...</p>;
+  if (error) return <p>Erro ao carregar casos</p>;
 
-  if (loadingCase) return <p>Carregando caso...</p>;
-  if (errorCase) return <p>Erro ao carregar caso</p>;
-  if (!caseData) return <p>Caso não encontrado</p>;
+  if (!cases || cases.length === 0) {
+    return (
+      <EmptyState
+        title="Nenhum caso encontrado"
+        description="Você ainda não possui casos cadastrados."
+        actionLabel="Criar novo caso"
+        onAction={() => console.log("Abrir modal de novo caso")}
+      />
+    );
+  }
+
+  const columns: Column<Case>[] = [
+    { key: "id", label: "ID" },
+    { key: "title", label: "Título" },
+    {
+      key: "created_at",
+      label: "Criado em",
+      render: (value: string) => new Date(value).toLocaleDateString(),
+    },
+    {
+      key: "id",
+      label: "Ações",
+      render: (_: any, row: Case) => <Link to={`/cases/${row.id}`}>Detalhes</Link>,
+    },
+  ];
+
 
   return (
     <div>
-      <h1>Detalhes do Caso: {caseData.title}</h1>
-      {caseData.description && <p>{caseData.description}</p>}
-
-      <section className="mt-4">
-        <h2>Análises</h2>
-        {loadingAnalyses ? (
-          <p>Carregando análises...</p>
-        ) : !analyses || analyses.length === 0 ? (
-          <EmptyState
-            title="Nenhuma análise encontrada"
-            description="Ainda não existem análises cadastradas para este caso."
-            actionLabel="Criar nova análise"
-            onAction={() => console.log("Abrir modal de nova análise")}
-          />
-        ) : (
-          <ul>
-            {analyses.map((analysis) => (
-              <li key={analysis.id}>
-                <Link to={`/analyses/${analysis.id}`}>{analysis.title}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link to={`/cases/${caseId}/analyses/create`} className="btn btn-primary mt-2">
-          Criar Nova Análise
-        </Link>
-      </section>
-
-      <section className="mt-4">
-        <h2>Quesitos</h2>
-        {loadingQuesitos ? (
-          <p>Carregando quesitos...</p>
-        ) : !quesitos || quesitos.length === 0 ? (
-          <EmptyState
-            title="Nenhum quesito encontrado"
-            description="Ainda não existem quesitos cadastrados para este caso."
-            actionLabel="Criar novo quesito"
-            onAction={() => console.log("Abrir modal de novo quesito")}
-          />
-        ) : (
-          <ul>
-            {quesitos.map((q) => (
-              <li key={q.id}>
-                <Link to={`/quesitos/${q.id}`}>{q.question}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link to={`/cases/${caseId}/quesitos/create`} className="btn btn-primary mt-2">
-          Criar Novo Quesito
-        </Link>
-      </section>
+      <h1>Casos</h1>
+      <DataTable columns={columns} data={cases} />
+      <Link to="/cases/create" className="btn btn-primary mt-3">
+        Criar Novo Caso
+      </Link>
     </div>
   );
 };

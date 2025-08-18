@@ -1,13 +1,15 @@
 // src/api/hooks/useAuth.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { UseMutationResult } from "@tanstack/react-query";
 import { AuthAPI } from "../client";
 import { useNavigate } from "react-router-dom";
 
-type User = {
+// Tipo de usuário
+export type User = {
   id: number;
   name: string;
   email: string;
-  // adicione aqui outros campos retornados pelo backend
+  // outros campos do backend
 };
 
 // Hook para buscar usuário logado
@@ -18,43 +20,42 @@ export const useCurrentUser = () => {
       const user = await AuthAPI.me();
       return user;
     },
-    retry: false, // evita loops caso não esteja autenticado
+    retry: false,
   });
 };
 
+// Payload do login
+type LoginPayload = { email: string; password: string };
+
 // Hook para login
-export const useLogin = () => {
+export const useLogin = (): UseMutationResult<User, Error, LoginPayload> => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  return useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+  return useMutation<User, Error, LoginPayload>({
+    mutationFn: async ({ email, password }) => {
       const data = await AuthAPI.login(email, password);
-      // salva tokens
       if (data.token) {
         localStorage.setItem("access", data.token);
       } else if (data.access) {
-        // caso use JWT padrão com access/refresh
         localStorage.setItem("access", data.access);
-        if (data.refresh) {
-          localStorage.setItem("refresh", data.refresh);
-        }
+        if (data.refresh) localStorage.setItem("refresh", data.refresh);
       }
       return data.user || data;
     },
     onSuccess: (user) => {
       queryClient.setQueryData(["currentUser"], user);
-      navigate("/"); // redireciona para home ou dashboard
+      navigate("/");
     },
   });
 };
 
 // Hook para logout
-export const useLogout = () => {
+export const useLogout = (): UseMutationResult<void, Error, void> => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  return useMutation({
+  return useMutation<void, Error, void>({
     mutationFn: async () => {
       try {
         await AuthAPI.logout();

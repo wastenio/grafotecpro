@@ -1,8 +1,11 @@
 // src/pages/analyses/AnalysisDetail.tsx
 import { useParams, Link } from "react-router-dom";
-import { useAnalysis } from "../../api/hooks/useAnalyses";
-import { useComparisonsByAnalysis } from "../../api/hooks/useComparisons";
-import { EmptyState } from "../../components/common/EmptyState";
+import { useAnalysis } from "@/api/hooks/useAnalyses";
+import { useComparisonsByAnalysis } from "@/api/hooks/useComparisons";
+import EmptyState from "@/components/common/EmptyState";
+import { DataTable } from "@/components/common/DataTable";
+import type { Column } from "@/components/common/DataTable";
+import type { Comparison } from "@/api/schemas";
 
 export const AnalysisDetail = () => {
   const { analysisId } = useParams<{ analysisId: string }>();
@@ -12,6 +15,25 @@ export const AnalysisDetail = () => {
   if (isLoading) return <p>Carregando análise...</p>;
   if (error || !analysis) return <p>Erro ao carregar a análise</p>;
 
+  const columns: Column<Comparison>[] = [
+    { key: "id", label: "ID" },
+    {
+      key: "similarity_score",
+      label: "Similaridade",
+      render: (value) => value ?? "-",
+    },
+    {
+      key: "result",
+      label: "Resultado",
+      render: (value) => value ?? "-",
+    },
+    {
+      key: "actions" as const,
+      label: "Ações",
+      render: (_value, row) => <Link to={`/comparisons/${row.id}`}>Detalhes</Link>,
+    },
+  ];
+
   return (
     <div>
       <h1>{analysis.title}</h1>
@@ -20,31 +42,16 @@ export const AnalysisDetail = () => {
 
       <h2 className="mt-4">Comparações</h2>
       {!comparisons || comparisons.length === 0 ? (
-        <EmptyState message="Nenhuma comparação encontrada" />
+        <EmptyState
+          title="Nenhuma comparação encontrada"
+          description="Ainda não existem comparações cadastradas para esta análise."
+          actionLabel="Criar comparação"
+          onAction={() => console.log("Abrir criação de comparação")}
+        />
       ) : (
-        <table className="table table-striped table-hover">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Similaridade</th>
-              <th>Resultado</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {comparisons.map((c) => (
-              <tr key={c.id}>
-                <td>{c.id}</td>
-                <td>{c.similarity_score ?? "-"}</td>
-                <td>{c.result ?? "-"}</td>
-                <td>
-                  <Link to={`/comparisons/${c.id}`}>Detalhes</Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable data={comparisons} columns={columns} />
       )}
+
       <Link to={`/analyses/${analysisId}/comparisons/create`} className="btn btn-primary mt-3">
         Criar Comparação
       </Link>

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ComparisonsAPI } from '../client';
 import { ComparisonSchema, type Comparison } from '../schemas';
+import type { ComparisonDetail } from '../types';
+
 
 // Listar comparações de uma análise
 export const useComparisonsByAnalysis = (analysisId: number) => {
@@ -31,11 +33,16 @@ export const useCreateComparison = (analysisId: number) => {
 
 // Obter resultado detalhado
 export const useComparisonDetail = (comparisonId: number) => {
-  return useQuery<Comparison>({
+  return useQuery<ComparisonDetail>({
     queryKey: ['comparison', comparisonId],
     queryFn: async () => {
       const data = await ComparisonsAPI.detailResult(comparisonId);
-      return ComparisonSchema.parse(data);
+      // Mapeia os documentos, caso existam
+      return {
+        ...data,
+        left_document_version: data.left_document_version ?? null,
+        right_document_version: data.right_document_version ?? null,
+      };
     },
   });
 };

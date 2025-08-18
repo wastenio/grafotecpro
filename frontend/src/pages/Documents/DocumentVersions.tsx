@@ -1,8 +1,12 @@
 // src/pages/documents/DocumentVersions.tsx
 import { useParams } from "react-router-dom";
-import { useDocumentVersions, useUploadDocumentVersion, useDownloadDocumentVersion } from "../../api/hooks/useDocuments";
+import {
+  useDocumentVersions,
+  useUploadDocumentVersion,
+  useDownloadDocumentVersion,
+} from "../../api/hooks/useDocuments";
 import { useState } from "react";
-import { EmptyState } from "../../components/common/EmptyState";
+import EmptyState from "../../components/common/EmptyState";
 
 export const DocumentVersions = () => {
   const { documentId } = useParams<{ documentId: string }>();
@@ -24,7 +28,15 @@ export const DocumentVersions = () => {
   if (isLoading) return <p>Carregando versões...</p>;
   if (error) return <p>Erro ao carregar versões</p>;
 
-  if (!versions || versions.length === 0) return <EmptyState message="Nenhuma versão encontrada" />;
+  if (!versions || versions.length === 0)
+    return (
+      <EmptyState
+        title="Nenhuma versão encontrada"
+        description="Este documento ainda não possui versões cadastradas."
+        actionLabel="Adicionar versão"
+        onAction={() => console.log("Abrir modal de upload")}
+      />
+    );
 
   return (
     <div>
@@ -39,7 +51,9 @@ export const DocumentVersions = () => {
           onChange={(e) => setChangelog(e.target.value)}
           className="form-control mt-1"
         />
-        <button className="btn btn-primary mt-2" onClick={handleUpload}>Upload</button>
+        <button className="btn btn-primary mt-2" onClick={handleUpload}>
+          Upload
+        </button>
       </div>
 
       <table className="table table-striped table-hover">
