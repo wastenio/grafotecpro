@@ -6,10 +6,19 @@ export interface User {
   is_staff: boolean;
 }
 
+export interface ForgeryType {
+  id: number;
+  name: string;
+  description?: string;
+}
+
 export interface Case {
   id: number;
   title: string;
   description?: string;
+  status?: string;
+  perito?: User;
+  fraudType?: ForgeryType;
   created_at: string;
   updated_at: string;
 }
@@ -59,12 +68,6 @@ export interface DocumentVersion {
   changelog?: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface ForgeryType {
-  id: number;
-  name: string;
-  description?: string;
 }
 
 export interface DocumentVersionBrief {

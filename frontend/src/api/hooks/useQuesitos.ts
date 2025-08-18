@@ -3,6 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QuesitosAPI } from '../client';
 import { QuesitoSchema, type Quesito } from '../schemas';
 
+// Payload esperado para criar um novo quesito
+interface CreateQuesitoPayload {
+  case_id: number;
+  question: string;
+}
+
 // Payload esperado para atualizar/responder quesito
 interface UpdateQuesitoPayload {
   answer?: string;
@@ -22,6 +28,25 @@ export const useQuesitosByCase = (caseId: number) => {
 };
 
 /**
+ * Criar novo quesito
+ */
+export const useCreateQuesito = (caseId: number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CreateQuesitoPayload) => {
+      // Aqui passamos o caseId como primeiro argumento
+      const data = await QuesitosAPI.create(caseId, payload);
+      return QuesitoSchema.parse(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quesitos', caseId] });
+    },
+  });
+};
+
+
+/**
  * Atualizar/responder quesito
  */
 export const useUpdateQuesito = () => {
@@ -38,9 +63,9 @@ export const useUpdateQuesito = () => {
       const data = await QuesitosAPI.update(id, payload);
       return QuesitoSchema.parse(data);
     },
-    onSuccess: (_, variables) => {
-      // Invalida apenas os quesitos relacionados ao case do quesito atualizado
-      queryClient.invalidateQueries({ queryKey: ['quesitos', variables.id] });
+    onSuccess: (updatedQuesito) => {
+      // Invalida a query de quesitos do case do quesito atualizado
+      queryClient.invalidateQueries({ queryKey: ['quesitos', updatedQuesito.case_id] });
     },
   });
 };

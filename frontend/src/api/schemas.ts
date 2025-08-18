@@ -11,11 +11,23 @@ export const UserSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 
-// Case
+// ForgeryType
+export const ForgeryTypeSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string().optional(),
+});
+
+export type ForgeryType = z.infer<typeof ForgeryTypeSchema>;
+
+// Case (atualizado com novos campos)
 export const CaseSchema = z.object({
   id: z.number(),
   title: z.string().min(1),
   description: z.string().optional(),
+  status: z.enum(['open', 'closed', 'pending']).optional(),
+  perito: UserSchema.optional(),
+  fraudType: ForgeryTypeSchema.optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -85,12 +97,3 @@ export const DocumentVersionSchema = z.object({
 });
 
 export type DocumentVersion = z.infer<typeof DocumentVersionSchema>;
-
-// ForgeryType
-export const ForgeryTypeSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  description: z.string().optional(),
-});
-
-export type ForgeryType = z.infer<typeof ForgeryTypeSchema>;

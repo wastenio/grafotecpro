@@ -1,4 +1,3 @@
-// src/pages/cases/CaseDetail.tsx
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCase } from "@/api/hooks/useCases";
 import { useAnalysesByCase } from "@/api/hooks/useAnalyses";
@@ -28,7 +27,10 @@ export const CaseDetail = () => {
       <div className="bg-white shadow rounded p-4 mb-6">
         <h1 className="text-2xl font-bold mb-2">{caseData.title}</h1>
         {caseData.description && <p className="mb-2">{caseData.description}</p>}
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 space-y-1">
+          <p>Status: {caseData.status ?? "Não definido"}</p>
+          <p>Perito: {caseData.perito ? `${caseData.perito.first_name} ${caseData.perito.last_name}` : "Não atribuído"}</p>
+          <p>Tipo de fraude: {caseData.fraudType?.name ?? "Não definido"}</p>
           <p>Criado em: {new Date(caseData.created_at).toLocaleDateString()}</p>
           <p>Atualizado em: {new Date(caseData.updated_at).toLocaleDateString()}</p>
         </div>
@@ -57,15 +59,15 @@ export const CaseDetail = () => {
           />
         ) : (
           <DataTable
-            data={quesitos ?? []}
+            data={analyses ?? []}
             columns={[
               {
-                key: "question",
-                label: "Pergunta",
-                accessor: "question",
-                render: (q) => (
-                  <Link to={`/quesitos/${q.id}`} className="text-blue-600 hover:underline">
-                    {q.question}
+                key: "title",
+                label: "Título",
+                accessor: "title",
+                render: (a) => (
+                  <Link to={`/analyses/${a.id}`} className="text-blue-600 hover:underline">
+                    {a.title}
                   </Link>
                 ),
               },
@@ -73,18 +75,16 @@ export const CaseDetail = () => {
                 key: "created_at",
                 label: "Criado em",
                 accessor: "created_at",
-                render: (q) => new Date(q.created_at).toLocaleDateString(),
+                render: (a) => new Date(a.created_at).toLocaleDateString(),
               },
               {
                 key: "updated_at",
                 label: "Atualizado em",
                 accessor: "updated_at",
-                render: (q) => new Date(q.updated_at).toLocaleDateString(),
+                render: (a) => new Date(a.updated_at).toLocaleDateString(),
               },
             ]}
           />
-
-
         )}
       </section>
 
@@ -137,7 +137,6 @@ export const CaseDetail = () => {
               },
             ]}
           />
-
         )}
       </section>
     </div>

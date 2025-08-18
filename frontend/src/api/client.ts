@@ -66,8 +66,26 @@ export const AnalysesAPI = {
 };
 
 export const QuesitosAPI = {
-  listByCase: (caseId: number) => api.get(`/analysis/cases/${caseId}/quesitos/`).then(r => r.data),
-  update: (id: number, payload: any) => api.patch(`/analysis/quesitos/${id}/`, payload).then(r => r.data),
+  listByCase: async (caseId: number) => {
+    const res = await fetch(`/api/cases/${caseId}/quesitos`);
+    return res.json();
+  },
+  update: async (id: number, payload: any) => {
+    const res = await fetch(`/api/quesitos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+  create: async (caseId: number, payload: any) => {
+    const res = await fetch(`/api/cases/${caseId}/quesitos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
 };
 
 export const ComparisonsAPI = {
