@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+// src/routes/index.tsx
+import { createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 
 // Pages
@@ -26,46 +27,36 @@ import { QuesitoCreate } from "../pages/Quesitos/QuesitoCreate";
 // Comentários (opcional)
 // import { CommentsList } from "../pages/Comments/CommentsList";
 
-const ProtectedLayout = () => (
-  <ProtectedRoute>
-    <Outlet />
-  </ProtectedRoute>
-);
+export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/logout", element: <Logout /> },
+  {
+    path: "/",
+    element: (
+      <ProtectedRoute>
+        <Dashboard />
+      </ProtectedRoute>
+    ),
+    children: [
+      // Cases
+      { path: "cases", element: <CasesList /> },
+      { path: "cases/create", element: <CaseCreate /> },
+      { path: "cases/:id", element: <CaseDetail /> },
 
-export default function AppRoutes() {
-  return (
-    <Router>
-      <Routes>
-        {/* Rotas públicas */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/logout" element={<Logout />} />
+      // Analyses
+      { path: "cases/:caseId/analyses", element: <AnalysesList /> },
+      { path: "cases/:caseId/analyses/create", element: <AnalysisCreate /> },
+      { path: "analyses/:analysisId", element: <AnalysisDetail /> },
 
-        {/* Rotas protegidas */}
-        <Route element={<ProtectedLayout />}>
-          {/* Dashboard */}
-          <Route path="/dashboard" element={<Dashboard />} />
+      // Comparisons
+      { path: "analyses/:analysisId/comparisons/create", element: <ComparisonCreate /> },
 
-          {/* Cases */}
-          <Route path="/cases" element={<CasesList />} />
-          <Route path="/cases/create" element={<CaseCreate />} />
-          <Route path="/cases/:id" element={<CaseDetail />} />
+      // Quesitos
+      { path: "cases/:caseId/quesitos", element: <QuesitosList /> },
+      { path: "cases/:caseId/quesitos/create", element: <QuesitoCreate /> },
 
-          {/* Analyses */}
-          <Route path="/cases/:caseId/analyses" element={<AnalysesList />} />
-          <Route path="/cases/:caseId/analyses/create" element={<AnalysisCreate />} />
-          <Route path="/analyses/:analysisId" element={<AnalysisDetail />} />
-
-          {/* Comparisons */}
-          <Route path="/analyses/:analysisId/comparisons/create" element={<ComparisonCreate />} />
-
-          {/* Quesitos */}
-          <Route path="/cases/:caseId/quesitos" element={<QuesitosList />} />
-          <Route path="/cases/:caseId/quesitos/create" element={<QuesitoCreate />} />
-
-          {/* Comentários (opcional) */}
-          {/* <Route path="/comments" element={<CommentsList />} /> */}
-        </Route>
-      </Routes>
-    </Router>
-  );
-}
+      // Comentários (opcional)
+      // { path: "comments", element: <CommentsList /> },
+    ],
+  },
+]);

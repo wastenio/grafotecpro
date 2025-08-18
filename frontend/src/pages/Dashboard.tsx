@@ -1,45 +1,73 @@
-// src/pages/Dashboard.tsx
+import {
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardActionArea,
+  Box,
+} from "@mui/material";
+import FolderIcon from "@mui/icons-material/Folder";
+import SearchIcon from "@mui/icons-material/Search";
+import HelpIcon from "@mui/icons-material/Help";
+import CompareIcon from "@mui/icons-material/CompareArrows";
 import { Link } from "react-router-dom";
+
+const modules = [
+  {
+    title: "Casos",
+    description: "Visualizar e gerenciar todos os casos.",
+    icon: <FolderIcon fontSize="large" color="primary" />,
+    to: "/cases",
+  },
+  {
+    title: "Análises",
+    description: "Visualizar e criar análises dentro dos casos.",
+    icon: <SearchIcon fontSize="large" color="primary" />,
+    to: "/analyses",
+  },
+  {
+    title: "Quesitos",
+    description: "Responder ou acompanhar quesitos dos peritos.",
+    icon: <HelpIcon fontSize="large" color="primary" />,
+    to: "/quesitos",
+  },
+  {
+    title: "Comparações",
+    description: "Acessar comparações de documentos lado a lado.",
+    icon: <CompareIcon fontSize="large" color="primary" />,
+    to: "/comparisons",
+  },
+];
 
 export default function Dashboard() {
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-      <p className="mb-4">Bem-vindo ao sistema! Aqui você pode acessar rapidamente os módulos:</p>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Dashboard
+      </Typography>
+      <Typography variant="subtitle1" gutterBottom>
+        Bem-vindo ao sistema! Acesse rapidamente os módulos:
+      </Typography>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Link
-          to="/cases"
-          className="p-6 bg-blue-100 rounded-lg hover:bg-blue-200 transition"
-        >
-          <h2 className="text-xl font-semibold mb-2">Casos</h2>
-          <p>Visualizar e gerenciar todos os casos.</p>
-        </Link>
-
-        <Link
-          to="/analyses"
-          className="p-6 bg-green-100 rounded-lg hover:bg-green-200 transition"
-        >
-          <h2 className="text-xl font-semibold mb-2">Análises</h2>
-          <p>Visualizar e criar análises dentro dos casos.</p>
-        </Link>
-
-        <Link
-          to="/quesitos"
-          className="p-6 bg-yellow-100 rounded-lg hover:bg-yellow-200 transition"
-        >
-          <h2 className="text-xl font-semibold mb-2">Quesitos</h2>
-          <p>Responder ou acompanhar quesitos dos peritos.</p>
-        </Link>
-
-        <Link
-          to="/comparisons"
-          className="p-6 bg-purple-100 rounded-lg hover:bg-purple-200 transition"
-        >
-          <h2 className="text-xl font-semibold mb-2">Comparações</h2>
-          <p>Acessar comparações de documentos lado a lado.</p>
-        </Link>
-      </div>
-    </div>
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        {modules.map((mod) => (
+          <Grid item xs={12} sm={6} md={3} key={mod.title}>
+            <Card elevation={3} sx={{ borderRadius: 2 }}>
+              <CardActionArea component={Link} to={mod.to}>
+                <CardContent sx={{ textAlign: "center" }}>
+                  {mod.icon}
+                  <Typography variant="h6" sx={{ mt: 1 }}>
+                    {mod.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {mod.description}
+                  </Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
   );
 }
