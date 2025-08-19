@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Login";
 import ProtectedRoute from "./ProtectedRoute";
 import CasesList from "../pages/cases/CasesList";
+import CaseDetail from "../pages/cases/CaseDetail"
 
 const AppRoutes = () => {
   return (
@@ -16,6 +17,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <CasesList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cases/:caseId"
+        element={
+          <ProtectedRoute>
+            <CaseDetail />
           </ProtectedRoute>
         }
       />
