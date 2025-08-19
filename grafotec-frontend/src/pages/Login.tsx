@@ -1,90 +1,85 @@
 import React, { useState } from "react";
 
-function Login() {
+const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
+  const [message, setMessage] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login tentado:", { email, password });
-    // futura integração com backend
+
+    if (!email || !password) {
+      setMessage("Preencha todos os campos.");
+      return;
+    }
+
+    // Simulação de cadastro/login local
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+
+    if (isRegister) {
+      // Cadastro
+      const exists = users.find((u: any) => u.email === email);
+      if (exists) {
+        setMessage("Usuário já existe.");
+        return;
+      }
+      users.push({ email, password });
+      localStorage.setItem("users", JSON.stringify(users));
+      setMessage("Cadastro realizado! Agora faça login.");
+      setIsRegister(false);
+    } else {
+      // Login
+      const user = users.find(
+        (u: any) => u.email === email && u.password === password
+      );
+      if (!user) {
+        setMessage("Usuário ou senha incorretos.");
+        return;
+      }
+      // Simulação de token
+      localStorage.setItem("token", "dummy-token");
+      setMessage("Login realizado com sucesso!");
+      window.location.href = "/cases"; // redireciona para a área protegida
+    }
   };
 
   return (
-    <div style={{ 
-      display: "flex", 
-      justifyContent: "center", 
-      alignItems: "center", 
-      height: "100vh", 
-      backgroundColor: "#f5f5f5" 
-    }}>
-      <div style={{ 
-        background: "#fff", 
-        padding: "2rem", 
-        borderRadius: "8px", 
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)", 
-        width: "100%", 
-        maxWidth: "400px" 
-      }}>
-        <h2 style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-          Acessar Sistema
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem" }}>
-              Email
-            </label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              style={{ 
-                width: "100%", 
-                padding: "0.75rem", 
-                border: "1px solid #ccc", 
-                borderRadius: "4px" 
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem" }}>
-              Senha
-            </label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
-              style={{ 
-                width: "100%", 
-                padding: "0.75rem", 
-                border: "1px solid #ccc", 
-                borderRadius: "4px" 
-              }}
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            style={{ 
-              width: "100%", 
-              padding: "0.75rem", 
-              backgroundColor: "#1976d2", 
-              color: "#fff", 
-              fontWeight: "bold", 
-              border: "none", 
-              borderRadius: "4px", 
-              cursor: "pointer" 
-            }}
-          >
-            Entrar
-          </button>
-        </form>
-      </div>
+    <div style={{ maxWidth: "400px", margin: "50px auto", textAlign: "center" }}>
+      <h2>{isRegister ? "Cadastro" : "Login"}</h2>
+      {message && <p>{message}</p>}
+      <form onSubmit={handleSubmit}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+        />
+        <input
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+        />
+        <button type="submit" style={{ width: "100%", padding: "10px" }}>
+          {isRegister ? "Cadastrar" : "Entrar"}
+        </button>
+      </form>
+      <p
+        style={{ cursor: "pointer", color: "blue", marginTop: "10px" }}
+        onClick={() => {
+          setIsRegister(!isRegister);
+          setMessage("");
+        }}
+      >
+        {isRegister
+          ? "Já tem conta? Faça login"
+          : "Não tem conta? Cadastre-se"}
+      </p>
     </div>
   );
-}
+};
 
 export default Login;
