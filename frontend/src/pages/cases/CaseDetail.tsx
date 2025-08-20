@@ -1,40 +1,62 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Container, Typography } from "@mui/material";
+import { useParams, Link } from "react-router-dom";
 import { getCaseDetail } from "../../api/cases";
 
-export default function CaseDetail() {
-  const { id } = useParams<{ id: string }>();
-  const [caseDetail, setCaseDetail] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+interface Case {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  created_at: string;
+  documents: Document[]; // <--- adiciona aqui
+  final_report?: string | null; // opcional
+}
 
-  const fetchCaseDetail = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const data = await getCaseDetail(Number(id));
-      setCaseDetail(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const CaseDetail = () => {
+  const { caseId } = useParams<{ caseId: string }>();
+  const [caseData, setCaseData] = useState<Case | null>(null);
 
   useEffect(() => {
-    fetchCaseDetail();
-  }, [id]);
+    const fetchCase = async () => {
+      if (!caseId) return;
+      const data = await getCaseDetail(Number(caseId));
+      setCaseData(data);
+    };
+    fetchCase();
+  }, [caseId]);
 
-  if (loading) return <Typography>Carregando...</Typography>;
-  if (!caseDetail) return <Typography>Caso não encontrado</Typography>;
+  if (!caseData) return <p>Carregando...</p>;
 
   return (
-    <Container sx={{ mt: 3 }}>
-      <Typography variant="h4">{caseDetail.title}</Typography>
-      <Typography variant="body1" sx={{ mt: 2 }}>
-        {caseDetail.description || "Sem descrição"}
-      </Typography>
-      {/* Aqui você pode adicionar componentes para análises e quesitos futuramente */}
-    </Container>
+    <div>
+      <h2>{caseData.title}</h2>
+      <p>Status: {caseData.status}</p>
+      <p>{caseData.description}</p>
+      <p>Criado em: {new Date(caseData.created_at).toLocaleString()}</p>
+
+      {/* Link para lista de análises */}
+      <Link to={`/cases/${caseId}/analyses`} style={{ display: "block", margin: "1rem 0" }}>
+        Ver Análises
+      </Link>
+
+      {/* Link para criar nova análise */}
+      <Link to={`/cases/${caseId}/analyses/new`} style={{ display: "block", marginBottom: "1rem" }}>
+        Criar Nova Análise
+      </Link>
+
+      {/* Caso queira depois adicionar documentos ou relatórios finais */}
+      <h3>Documentos</h3>
+      {caseData.documents?.length === 0 ? (
+        <p>Nenhum documento enviado.</p>
+      ) : (
+        <ul>
+          {caseData.documents.map((doc: any) => (
+            <li key={doc.id}>{doc.name}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
-}
+};
+
+export default CaseDetail;
