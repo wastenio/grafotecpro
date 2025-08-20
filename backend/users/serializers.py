@@ -4,6 +4,8 @@ from django.forms import ValidationError
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
 
 User = get_user_model()
 
@@ -70,3 +72,24 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['username', 'is_expert', 'is_client']
+        
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'email'  # força a usar email em vez de username
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            # autentica usando email
+            user = authenticate(email=email, password=password)
+            if user is None:
+                raise serializers.ValidationError('Email ou senha inválidos')
+        else:
+            raise serializers.ValidationError('Email e senha são obrigatórios')
+
+        # O serializer interno ainda precisa de username
+        return super().validate({
+            'username': user.username,
+            'password': password
+        })

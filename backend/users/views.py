@@ -14,8 +14,34 @@ from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.core.mail import EmailMultiAlternatives
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
 
 User = get_user_model()
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        if email is None or password is None:
+            raise serializers.ValidationError("Email e senha são obrigatórios")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Email ou senha inválidos")
+
+        # Passa o username real para o TokenObtainPairSerializer
+        attrs['username'] = user.username
+
+        return super().validate(attrs)
+        
+class EmailTokenObtainPairView(TokenObtainPairView):
+    serializer_class = EmailTokenObtainPairSerializer
+
 
 class RegisterView(generics.CreateAPIView):
     """
@@ -235,3 +261,40 @@ def test_email(request):
         return Response({'detail': 'Email enviado com sucesso para ' + request.user.email})
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+from django.contrib.auth import authenticate, login, logout
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    """
+    POST:
+    Autentica um usuário usando username e password.
+    Espera JSON:
+    {
+        "username": "admin",
+        "password": "senha123"
+    }
+    Retorna mensagem de sucesso ou erro.
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response({"detail": "Informe usuário e senha"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        login(request, user)  # cria sessão
+        return Response({"detail": "Login realizado com sucesso"})
+    else:
+        return Response({"detail": "Usuário ou senha inválidos"}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def logout_view(request):
+    """
+    POST:
+    Encerra a sessão do usuário.
+    """
+    logout(request)
+    return Response({"detail": "Logout realizado com sucesso"})
