@@ -104,34 +104,29 @@ class Comparison(models.Model):
     """
     Resultado do confronto entre um Pattern e um Document (questionado).
     """
-    analysis = models.ForeignKey(Analysis, related_name='comparisons', on_delete=models.CASCADE)
-    pattern = models.ForeignKey(Pattern, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
-    document = models.ForeignKey(Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='comparisons')
-    
-    # Novos campos para versões específicas
+    analysis = models.ForeignKey(
+        Analysis, on_delete=models.CASCADE, related_name="comparisons"
+    )
+    # Sempre comparar versões específicas
     pattern_version = models.ForeignKey(
         DocumentVersion,
+        on_delete=models.CASCADE,
+        related_name="pattern_comparisons",
         null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='pattern_comparisons'
+        blank=True
     )
     document_version = models.ForeignKey(
         DocumentVersion,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='document_comparisons'
+        on_delete=models.CASCADE,
+        related_name="document_comparisons",
+        null=True,  # permite NULL no banco
+        blank=True
     )
-    
-    similarity_score = models.FloatField(null=True, blank=True)
-    findings = models.TextField(blank=True)  # observações detalhadas
-    forgery_types = models.ManyToManyField(ForgeryType, blank=True, related_name='analyses')
+    result = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    automatic_result = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"Comparison {self.pk} - Analysis {self.analysis.pk}"
+        return f"Comparison {self.id} - Analysis {self.analysis.id}"
     
 class Comment(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')

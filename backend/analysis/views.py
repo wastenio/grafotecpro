@@ -1,39 +1,59 @@
-from rest_framework import generics, permissions, status, viewsets, filters
+# 1. Bibliotecas padrão
+import os
+import io
+import logging
+import openai
+from django.utils import timezone
+
+# 2. Django
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, FileResponse
+
+# 3. DRF e terceiros
+from rest_framework import (
+    generics, permissions, status, viewsets, serializers
+)
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from cases.models import Document, Case
-from .models import Analysis, ForgeryType, Quesito, Comparison, Pattern, DocumentVersion, Comment
-from .serializers import (
-    AnalysisSerializer, ComparisonCreateUpdateSerializer, ComparisonDetailResultSerializer, ForgeryTypeSerializer,
-    QuesitoSerializer, ComparisonSerializer, PatternSerializer,
-    DocumentVersionSerializer, CommentSerializer
+from rest_framework import filters as drf_filters
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
+
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+# ReportLab
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image, Table, TableStyle
 )
-from django.http import HttpResponse, FileResponse
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
-from django.conf import settings
-import io
-import os
-import logging
-from django.utils import timezone
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from analysis import utils
-from .ml_service import calculate_signature_similarity
-import openai
+
+# 4. Projeto interno
+from cases.models import Document, Case
+from .models import (
+    Analysis, ForgeryType, Quesito, Comparison,
+    Pattern, DocumentVersion, Comment
+)
+from .serializers import (
+    AnalysisCreateUpdateSerializer, AnalysisListSerializer, AnalysisSerializer,
+    ComparisonCreateUpdateSerializer, ComparisonDetailResultSerializer,
+    ComparisonListSerializer, ForgeryTypeSerializer, QuesitoSerializer,
+    ComparisonSerializer, PatternSerializer, DocumentVersionSerializer,
+    CommentSerializer
+)
 from .permissions import IsCasePeritoOrReadOnly, IsCommentAuthorOrReadOnly
-from rest_framework import filters as drf_filters
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
 from .filters import AnalysisFilter
-from rest_framework.pagination import PageNumberPagination
+from .ml_service import calculate_signature_similarity
+from .comparison_service import analyze_signature
 from .signing import sign_pdf_bytes_visible
-from rest_framework import serializers
+from analysis import utils
+
 
 logger = logging.getLogger(__name__)
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -46,7 +66,10 @@ class QuesitoListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         analysis_id = self.kwargs['analysis_id']
-        return Quesito.objects.filter(analysis_id=analysis_id, analysis__case__user=self.request.user)
+        user = self.request.user
+        if user.is_staff:
+            return Quesito.objects.filter(analysis_id=analysis_id)
+        return Quesito.objects.filter(analysis_id=analysis_id, analysis__case__user=user)
 
     def perform_create(self, serializer):
         analysis_id = self.kwargs['analysis_id']
@@ -102,18 +125,23 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 # --- Analysis ViewSet ---
 class AnalysisViewSet(viewsets.ModelViewSet):
-    serializer_class = AnalysisSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Analysis.objects.all().order_by('-created_at')
     filter_backends = [DjangoFilterBackend, drf_filters.OrderingFilter, drf_filters.SearchFilter]
     filterset_class = AnalysisFilter
     search_fields = ['observation', 'methodology', 'conclusion']
     ordering_fields = ['created_at', 'status', 'perito__username']
     ordering = ['-created_at']
     pagination_class = StandardResultsSetPagination
+    queryset = Analysis.objects.all()
 
     def get_queryset(self):
         return Analysis.objects.filter(case__user=self.request.user).order_by('-created_at')
+    
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return AnalysisListSerializer
+        return AnalysisCreateUpdateSerializer
+
 
     def perform_create(self, serializer):
         case_id = self.request.data.get('case_id') or self.kwargs.get('case_id')
@@ -149,19 +177,29 @@ class AnalysisViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def export_pdf(self, request, pk=None):
         analysis = self.get_object()
-        pdf_path = generate_pdf_report(analysis)
-        with open(pdf_path, 'rb') as f:
-            response = Response(f.read(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="laudo.pdf"'
+        case = analysis.case
+
+        pdf_path = generate_pdf(case, include_signature=True)
+        if not pdf_path:
+            return Response({"error": "Falha ao gerar PDF"}, status=500)
+
+        with open(pdf_path, "rb") as f:
+            response = HttpResponse(f.read(), content_type="application/pdf")
+            response['Content-Disposition'] = f'attachment; filename="case_{case.id}_report.pdf"'
             return response
 
     @action(detail=True, methods=['get'])
     def export_docx(self, request, pk=None):
         analysis = self.get_object()
-        docx_path = generate_docx_report(analysis)
-        with open(docx_path, 'rb') as f:
-            response = Response(f.read(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            response['Content-Disposition'] = f'attachment; filename="laudo.docx"'
+        case = analysis.case
+
+        docx_path = generate_docx(case, include_signature=True)
+        if not docx_path:
+            return Response({"error": "Falha ao gerar DOCX"}, status=500)
+
+        with open(docx_path, "rb") as f:
+            response = HttpResponse(f.read(), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            response['Content-Disposition'] = f'attachment; filename="case_{case.id}_report.docx"'
             return response
 
 
@@ -223,19 +261,21 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         analysis_id = self.kwargs.get('analysis_id')
-        return Comparison.objects.filter(analysis__id=analysis_id, analysis__case__user=self.request.user)
+        user = self.request.user
+        if user.is_staff:
+            return Comparison.objects.filter(analysis__id=analysis_id)
+        return Comparison.objects.filter(analysis__id=analysis_id, analysis__case__user=user)
 
     def perform_create(self, serializer):
         analysis_id = self.kwargs.get('analysis_id')
         analysis = get_object_or_404(Analysis, pk=analysis_id, case__user=self.request.user)
 
+        # Determina os caminhos das imagens
         pattern = serializer.validated_data.get('pattern')
         document = serializer.validated_data.get('document')
-
         pattern_version = serializer.validated_data.get('pattern_version')
         document_version = serializer.validated_data.get('document_version')
 
-        # Define paths para as imagens usando versões, se existirem
         if pattern_version:
             path_img1 = pattern_version.file.path
         elif pattern and hasattr(pattern, 'file') and pattern.file:
@@ -251,44 +291,25 @@ class ComparisonListCreateView(generics.ListCreateAPIView):
             path_img2 = None
 
         if not path_img1 or not path_img2:
-            raise serializers.ValidationError("Arquivos válidos de pattern e document são necessários para comparação.")
+            raise serializers.ValidationError("Arquivos válidos de pattern e document são necessários para a comparação.")
 
-        # Tenta calcular similaridade com tratamento de exceção específica (a ajustar conforme sua implementação)
-        try:
-            similarity_score = calculate_signature_similarity(path_img1, path_img2)
-        except Exception as e:
-            similarity_score = None
-            logger.warning(f"Erro ao calcular similaridade: {e}")
+        # Lógica refatorada: chama o serviço para obter os resultados
+        result_data = analyze_signature(path_img1, path_img2)
 
-        # Monta prompt para OpenAI
-        openai_prompt = f"""
-Você é um perito grafotécnico. Analise o seguinte resultado de similaridade de assinaturas:
-
-Similaridade numérica: {similarity_score if similarity_score is not None else 'não disponível'}.
-
-Explique o que isso pode indicar em termos de autenticidade, possível falsificação ou semelhança.
-"""
-        # Tenta obter análise automática com logging do erro se houver
-        try:
-            response = openai.Completion.create(
-                model="text-davinci-003",
-                prompt=openai_prompt,
-                max_tokens=150,
-                temperature=0.7
-            )
-            automatic_result = response.choices[0].text.strip()
-        except Exception as e:
-            automatic_result = "Não foi possível gerar a análise automática."
-            logger.error(f"Erro ao chamar OpenAI: {e}")
-
-        # Salva o objeto Comparison com os dados obtidos
+        # Salva o objeto Comparison com os dados obtidos do serviço
         serializer.save(
             analysis=analysis,
-            similarity_score=similarity_score,
-            automatic_result=automatic_result,
+            similarity_score=result_data['similarity_score'],
+            automatic_result=result_data['automatic_result'],
             pattern_version=pattern_version,
             document_version=document_version,
         )
+
+
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from .models import Comparison
+from .serializers import ComparisonSerializer, ComparisonCreateUpdateSerializer
 
 
 class ComparisonViewSet(viewsets.ModelViewSet):
@@ -296,16 +317,44 @@ class ComparisonViewSet(viewsets.ModelViewSet):
     ViewSet completo para Comparisons, usando serializers diferentes para leitura e escrita.
     """
     permission_classes = [permissions.IsAuthenticated]
+    queryset = Comparison.objects.all()
 
     def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
-            return ComparisonSerializer
+        if self.action in ["list", "retrieve"]:
+            return ComparisonListSerializer
         return ComparisonCreateUpdateSerializer
 
     def get_queryset(self):
         user = self.request.user
         # Filtra Comparisons para garantir que usuário só veja seus próprios casos
         return Comparison.objects.filter(analysis__case__user=user)
+
+    def create(self, request, *args, **kwargs):
+        """
+        Criação de uma Comparison vinculando versões de documentos
+        (pattern_version e document_version) em vez de apenas documentos.
+        """
+        pattern_version_id = request.data.get("pattern_version_id")
+        document_version_id = request.data.get("document_version_id")
+
+        if not (pattern_version_id and document_version_id):
+            return Response(
+                {"error": "Ambas as versões (padrão e documento) devem ser fornecidas."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        comparison = Comparison.objects.create(
+            analysis_id=request.data.get("analysis"),
+            pattern_version_id=pattern_version_id,
+            document_version_id=document_version_id,
+            findings=request.data.get("findings", ""),
+            similarity_score=request.data.get("similarity_score"),
+            automatic_result=request.data.get("automatic_result")
+        )
+
+        serializer = self.get_serializer(comparison)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 class ComparisonDetailResultView(generics.RetrieveAPIView):

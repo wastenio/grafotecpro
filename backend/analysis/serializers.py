@@ -1,11 +1,18 @@
-from rest_framework import serializers
-from .models import Pattern, Quesito, Analysis, Comparison, DocumentVersion, ForgeryType
-from cases.serializers import DocumentSerializer  # reaproveite se existir
-from cases.models import Document
-from .models import Comment
-from rest_framework import generics, permissions
 from django.utils import timezone
+from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
+
+from cases.models import Document
+from cases.serializers import DocumentSerializer
+
+from rest_framework import generics, permissions
+
+from .models import (
+    Pattern, Quesito, Analysis,
+    Comparison, DocumentVersion,
+    ForgeryType, Comment
+)
+
 
 
 # --- PatternSerializer ---
@@ -59,22 +66,51 @@ class QuesitoListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 # --- ComparisonSerializer (read-only serializer para GET) ---
+
+class DocumentVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentVersion
+        fields = ["id", "document", "file", "version_number", "uploaded_at", "uploaded_by", "changelog"]
+        
+        
 class ComparisonSerializer(serializers.ModelSerializer):
-    pattern_detail = PatternSerializer(source='pattern', read_only=True)
-    document_detail = serializers.PrimaryKeyRelatedField(source='document', read_only=True)
-
-    # Novos campos para versão detalhada (somente leitura)
-    pattern_version_detail = serializers.SerializerMethodField()
-    document_version_detail = serializers.SerializerMethodField()
-
-    # MELHORIA: Ajuste para ManyToMany de forgery_types para mostrar lista de nomes
-    forgery_types = serializers.SlugRelatedField(many=True, read_only=True, slug_field='name')
+    pattern_version = DocumentVersionSerializer(read_only=True)
+    document_version = DocumentVersionSerializer(read_only=True)
 
     class Meta:
         model = Comparison
-        fields = '__all__'
+        fields = [
+            "id",
+            "analysis",
+            "pattern",
+            "document",
+            "pattern_version",
+            "document_version",
+            "result",
+            "created_at"
+        ]
         read_only_fields = ['created_at']
 
+    # Validação customizada para garantir consistência entre documentos e versões
+    def validate(self, data):
+        pattern = data.get("pattern")
+        pattern_version = getattr(self.instance, 'pattern_version', None)
+        document = data.get("document")
+        document_version = getattr(self.instance, 'document_version', None)
+
+        if pattern_version and pattern_version.document != getattr(pattern, 'uploaded_document', None):
+            raise serializers.ValidationError({
+                "pattern_version": "Esta versão não pertence ao documento vinculado ao padrão selecionado."
+            })
+
+        if document_version and document_version.document != document:
+            raise serializers.ValidationError({
+                "document_version": "Esta versão não pertence ao documento vinculado."
+            })
+
+        return data
+
+    # Detalhes adicionais das versões (opcional)
     def get_pattern_version_detail(self, obj):
         if obj.pattern_version:
             return {
@@ -94,6 +130,7 @@ class ComparisonSerializer(serializers.ModelSerializer):
                 'uploaded_at': obj.document_version.uploaded_at,
             }
         return None
+
 
 # --- ComparisonCreateUpdateSerializer (para POST/PUT/PATCH) ---
 class ComparisonCreateUpdateSerializer(serializers.ModelSerializer):
@@ -171,6 +208,77 @@ class AnalysisSerializer(serializers.ModelSerializer):
     def get_quesitos(self, obj):
         quesitos = obj.case.quesitos.all()
         return QuesitoSerializer(quesitos, many=True).data
+    
+class ComparisonListSerializer(serializers.ModelSerializer):
+    analysis = serializers.StringRelatedField()
+    pattern = serializers.StringRelatedField()
+    document = serializers.StringRelatedField()
+    forgery_types = serializers.StringRelatedField(many=True)
+
+    class Meta:
+        model = Comparison
+        fields = [
+            "id",
+            "analysis",
+            "pattern",
+            "document",
+            "pattern_version",
+            "document_version",
+            "similarity_score",
+            "findings",
+            "forgery_types",
+            "created_at",
+        ]
+
+class ComparisonCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comparison
+        fields = [
+            "analysis",
+            "pattern",
+            "document",
+            "pattern_version",
+            "document_version",
+            "similarity_score",
+            "findings",
+            "forgery_types",
+        ]
+
+        
+class AnalysisListSerializer(serializers.ModelSerializer):
+    case = serializers.StringRelatedField()
+    perito = serializers.StringRelatedField()
+    document_original = serializers.StringRelatedField()
+    document_contested = serializers.StringRelatedField()
+    comparisons_count = serializers.IntegerField(source="comparisons.count", read_only=True)
+
+    class Meta:
+        model = Analysis
+        fields = [
+            "id",
+            "case",
+            "perito",
+            "document_original",
+            "document_contested",
+            "status",
+            "created_at",
+            "comparisons_count",
+        ]
+
+class AnalysisCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Analysis
+        fields = [
+            "case",
+            "perito",
+            "document_original",
+            "document_contested",
+            "observation",
+            "methodology",
+            "conclusion",
+            "status",
+        ]
+
 
 # --- ForgeryTypeSerializer ---
 class ForgeryTypeSerializer(serializers.ModelSerializer):
