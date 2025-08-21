@@ -1,26 +1,50 @@
-import { Card, CardContent, Typography, Button } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+// src/components/common/PageHeader.tsx
+import React, { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
-interface CaseCardProps {
-  id: number;
+interface PageHeaderProps {
   title: string;
-  description?: string;
+  actionLabel?: string;
+  actionLink?: string;
+  actionOnClick?: () => void; // Caso queira ação via função
+  children?: ReactNode;        // Para adicionar elementos extras
 }
 
-export default function CaseCard({ id, title, description }: CaseCardProps) {
-  const navigate = useNavigate();
-
+const PageHeader: React.FC<PageHeaderProps> = ({
+  title,
+  actionLabel,
+  actionLink,
+  actionOnClick,
+  children,
+}) => {
   return (
-    <Card sx={{ marginBottom: 2 }}>
-      <CardContent>
-        <Typography variant="h6">{title}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {description || "Sem descrição"}
-        </Typography>
-        <Button sx={{ mt: 1 }} onClick={() => navigate(`/cases/${id}`)}>
-          Ver Detalhes
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-2xl font-bold">{title}</h1>
+
+      <div className="flex items-center space-x-2">
+        {children}
+        {actionLabel && (actionLink || actionOnClick) && (
+          <>
+            {actionLink ? (
+              <Link
+                to={actionLink}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+              >
+                {actionLabel}
+              </Link>
+            ) : (
+              <button
+                onClick={actionOnClick}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+              >
+                {actionLabel}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
-}
+};
+
+export default PageHeader;
