@@ -1,19 +1,21 @@
+// src/pages/analyses/AnalysisDetail.tsx
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Analysis as AnalysisType,
   getAnalysisDetail,
   uploadAnalysisDocument,
-  runAIAnalysis
+  runAIAnalysis,
 } from "../../api/hooks/useAnalyses";
-import PageHeader from "../../components/common/PageHeader";
 import Loader from "../../components/common/Loader";
+import PageHeader from "../../components/common/PageHeader";
 
 const AnalysisDetail = () => {
   const { analysisId } = useParams<{ analysisId: string }>();
   const [analysis, setAnalysis] = useState<AnalysisType | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -22,12 +24,14 @@ const AnalysisDetail = () => {
       try {
         const data = await getAnalysisDetail(Number(analysisId));
         setAnalysis(data);
-      } catch (error) {
-        console.error("Erro ao buscar análise:", error);
+      } catch (err) {
+        console.error("Erro ao buscar análise:", err);
+        setError("Não foi possível carregar a análise.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchAnalysis();
   }, [analysisId]);
 
@@ -36,11 +40,11 @@ const AnalysisDetail = () => {
     setLoading(true);
     try {
       await uploadAnalysisDocument(analysis.id, file);
-      const updatedAnalysis = await getAnalysisDetail(analysis.id);
-      setAnalysis(updatedAnalysis);
+      const updated = await getAnalysisDetail(analysis.id);
+      setAnalysis(updated);
       alert("Documento enviado com sucesso!");
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Erro ao enviar documento:", err);
       alert("Erro ao enviar documento.");
     } finally {
       setLoading(false);
@@ -52,56 +56,53 @@ const AnalysisDetail = () => {
     setLoading(true);
     try {
       await runAIAnalysis(analysis.id);
-      const updatedAnalysis = await getAnalysisDetail(analysis.id);
-      setAnalysis(updatedAnalysis);
+      const updated = await getAnalysisDetail(analysis.id);
+      setAnalysis(updated);
       alert("Análise AI executada com sucesso!");
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Erro ao rodar AI:", err);
       alert("Erro ao rodar análise AI.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading || !analysis) return <Loader />;
+  if (loading) return <Loader />;
+  if (error) return <p className="text-red-500">{error}</p>;
+  if (!analysis) return <p>Carregando análise...</p>;
 
   return (
-    <div>
-      <PageHeader title={analysis.observation || "Análise"} />
-      <div className="border rounded shadow p-4">
-        <h2 className="text-xl font-bold mb-2">{analysis.observation || "Sem título"}</h2>
-        <p className="text-gray-600 mb-1"><strong>Status:</strong> {analysis.conclusion ? "Concluída" : "Pendente"}</p>
-        <p className="text-gray-600 mb-1">
-          <strong>Criado em:</strong> {analysis.created_at ? new Date(analysis.created_at).toLocaleString() : "N/A"}
-        </p>
-        <p className="text-gray-700 mb-2"><strong>Descrição:</strong> {analysis.methodology || "Sem descrição"}</p>
+    <div className="p-4">
+      <PageHeader title={analysis.observation || "Sem título"} />
 
-        <hr className="my-3"/>
+      <div className="mb-4">
+        <p><strong>Status:</strong> {analysis.conclusion ? "Concluída" : "Pendente"}</p>
+        <p><strong>Criado em:</strong> {analysis.created_at ? new Date(analysis.created_at).toLocaleString() : "N/A"}</p>
+        <p><strong>Descrição:</strong> {analysis.methodology || "Sem descrição"}</p>
+        <p><strong>Conclusão:</strong> {analysis.conclusion || "N/A"}</p>
+      </div>
 
-        <div className="mb-3">
-          <h3 className="font-semibold mb-2">Upload de Documento</h3>
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          <button
-            onClick={handleFileUpload}
-            disabled={loading || !file}
-            className="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Enviar
-          </button>
-        </div>
+      <div className="mb-4 border-t pt-4">
+        <h3 className="text-lg font-bold mb-2">Upload de Documento</h3>
+        <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        <button
+          onClick={handleFileUpload}
+          disabled={loading || !file}
+          className="ml-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+        >
+          Enviar
+        </button>
+      </div>
 
-        <hr className="my-3"/>
-
-        <div>
-          <h3 className="font-semibold mb-2">Análise Automática (AI)</h3>
-          <button
-            onClick={handleRunAI}
-            disabled={loading}
-            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Rodar AI
-          </button>
-        </div>
+      <div className="mb-4 border-t pt-4">
+        <h3 className="text-lg font-bold mb-2">Análise Automática (AI)</h3>
+        <button
+          onClick={handleRunAI}
+          disabled={loading}
+          className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition"
+        >
+          Rodar AI
+        </button>
       </div>
     </div>
   );

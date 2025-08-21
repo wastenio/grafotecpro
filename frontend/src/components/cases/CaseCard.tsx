@@ -1,50 +1,26 @@
-// src/components/common/PageHeader.tsx
-import React, { ReactNode } from "react";
-import { Link } from "react-router-dom";
+// src/components/cases/CaseCard.tsx
+import React from "react";
+import { Case } from "../../api/cases";
 
-interface PageHeaderProps {
-  title: string;
-  actionLabel?: string;
-  actionLink?: string;
-  actionOnClick?: () => void; // Caso queira ação via função
-  children?: ReactNode;        // Para adicionar elementos extras
+interface CaseCardProps {
+  caseData: Case;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({
-  title,
-  actionLabel,
-  actionLink,
-  actionOnClick,
-  children,
-}) => {
-  return (
-    <div className="flex justify-between items-center mb-6">
-      <h1 className="text-2xl font-bold">{title}</h1>
+const CaseCard: React.FC<CaseCardProps> = ({ caseData }) => {
+  const formattedDate = caseData.created_at
+    ? new Date(caseData.created_at).toLocaleString()
+    : "Data não disponível";
 
-      <div className="flex items-center space-x-2">
-        {children}
-        {actionLabel && (actionLink || actionOnClick) && (
-          <>
-            {actionLink ? (
-              <Link
-                to={actionLink}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-              >
-                {actionLabel}
-              </Link>
-            ) : (
-              <button
-                onClick={actionOnClick}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-              >
-                {actionLabel}
-              </button>
-            )}
-          </>
-        )}
-      </div>
+  return (
+    <div className="border rounded p-4 shadow-sm bg-white hover:shadow-md transition mb-4">
+      <h2 className="text-xl font-semibold">{caseData.title}</h2>
+      <p className="text-gray-700">{caseData.description}</p>
+      {caseData.status && (
+        <p className="text-sm text-gray-600">Status: {caseData.status}</p>
+      )}
+      <p className="text-sm text-gray-500">Criado em: {formattedDate}</p>
     </div>
   );
 };
 
-export default PageHeader;
+export default CaseCard;
