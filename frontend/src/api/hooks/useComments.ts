@@ -1,3 +1,4 @@
+// src/api/hooks/useComments.ts
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -31,7 +32,7 @@ export interface Comment {
 }
 
 // --- Listar comentários ---
-interface GetCommentsParams {
+export interface GetCommentsParams {
   caseId?: number;
   analysisId?: number;
   rootOnly?: boolean;
@@ -47,20 +48,15 @@ export const getComments = async (params?: GetCommentsParams): Promise<Comment[]
     const response = await api.get("/comments/", { params: queryParams });
     return response.data.results || response.data;
   } catch (error: any) {
-    console.error("Erro ao listar comentários:", error.response || error);
+    console.error("Erro ao buscar comentários:", error.response || error);
     throw error;
   }
 };
 
 // --- Criar novo comentário ---
-interface CreateCommentPayload {
-  case: number;
-  analysis?: number;
-  parent?: number;
-  text: string;
-}
-
-export const createComment = async (data: CreateCommentPayload): Promise<Comment> => {
+export const createComment = async (
+  data: Omit<Comment, "id" | "author_name" | "author_email" | "replies">
+): Promise<Comment> => {
   try {
     const response = await api.post("/comments/", data);
     return response.data;

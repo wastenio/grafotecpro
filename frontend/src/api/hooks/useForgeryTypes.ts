@@ -1,12 +1,15 @@
+// src/api/hooks/useForgeryTypes.ts
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
+// --- Headers de autenticação ---
 const getAuthHeaders = () => {
   const token = localStorage.getItem("access_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// --- Instância axios ---
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -36,7 +39,7 @@ export const getForgeryTypes = async (): Promise<ForgeryType[]> => {
 };
 
 // --- Criar novo tipo ---
-interface CreateForgeryTypePayload {
+export interface CreateForgeryTypePayload {
   name: string;
   description?: string;
   example_image?: string;

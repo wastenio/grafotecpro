@@ -1,12 +1,15 @@
+// src/api/hooks/usePatterns.ts
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
+// --- Headers de autenticação ---
 const getAuthHeaders = () => {
   const token = localStorage.getItem("access_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// --- Instância axios ---
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -32,7 +35,7 @@ export interface Pattern {
 export const getPatterns = async (): Promise<Pattern[]> => {
   try {
     const response = await api.get("/patterns/");
-    return response.data.results || response.data;
+    return response.data.results || response.data; // suporta paginação
   } catch (error: any) {
     console.error("Erro ao listar padrões:", error.response || error);
     throw error;
@@ -40,7 +43,7 @@ export const getPatterns = async (): Promise<Pattern[]> => {
 };
 
 // --- Criar novo padrão ---
-interface CreatePatternPayload {
+export interface CreatePatternPayload {
   title: string;
   description?: string;
   uploaded_document?: number;

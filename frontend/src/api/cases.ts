@@ -1,44 +1,36 @@
-import axios from "axios";
+// src/api/cases.ts
+import api from "./axios"; // usa a instância única e corrigida de axios
 
-// URL base do backend
-const API_BASE_URL = "http://localhost:8000/api";
+// --- Tipagem opcional ---
+export interface Case {
+  id: number;
+  title: string;
+  description?: string;
+  owner?: number;
+  created_at?: string;
+  updated_at?: string;
+}
 
-// Cria instância do axios com configuração global
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Interceptor para incluir o token JWT em todas as requisições
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) {
-    config.headers!["Authorization"] = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Listar todos os cases
-export const getCases = async () => {
+// --- Listar todos os cases ---
+export const getCases = async (): Promise<Case[]> => {
   const response = await api.get("/cases/");
-  return response.data;
+  return response.data.results || response.data;
 };
 
-// Obter detalhes de um case
-export const getCaseDetail = async (id: number) => {
+// --- Detalhes de um case ---
+export const getCaseDetail = async (id: number): Promise<Case> => {
   const response = await api.get(`/cases/${id}/`);
   return response.data;
 };
 
-// Criar novo case
-export const createCase = async (data: any) => {
-  try {
-    const response = await api.post("/cases/", data);
-    return response.data;
-  } catch (error: any) {
-    console.error("Erro ao criar case:", error.response || error);
-    throw error;
-  }
+// --- Criar novo case ---
+export const createCase = async (data: Partial<Case>): Promise<Case> => {
+  const response = await api.post("/cases/", data);
+  return response.data;
+};
+
+// --- Atualizar case (opcional) ---
+export const updateCase = async (id: number, data: Partial<Case>): Promise<Case> => {
+  const response = await api.put(`/cases/${id}/`, data);
+  return response.data;
 };

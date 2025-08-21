@@ -1,45 +1,73 @@
 import { useEffect, useState } from "react";
-import { getComparisons } from "../../api/hooks/comparisons";
+import { Comparison as ComparisonType, getComparisons } from "../../api/hooks/comparisons";
 import { Link, useParams } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
+import ItemCard from "../../components/common/ItemCard";
 
 interface Comparison {
   id: number;
-  similarity_score: number | null;
-  automatic_result: string;
-  pattern_name: string;
-  document_name: string;
+  title: string;
+  description: string;
+  status: string;
+  created_at: string;
 }
 
 const ComparisonsList = () => {
   const { analysisId } = useParams<{ analysisId: string }>();
   const [comparisons, setComparisons] = useState<Comparison[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchComparisons = async () => {
       if (!analysisId) return;
-      const data = await getComparisons(Number(analysisId));
-      setComparisons(data); // se usar paginação, adapte para data.results
+      setLoading(true);
+      try {
+        const data: ComparisonType[] = await getComparisons(Number(analysisId));
+        const mapped: Comparison[] = data.map(c => ({
+          id: c.id,
+          title: c.title || "Sem título",
+          description: c.description || "",
+          status: c.status || "Pendente",
+          created_at: c.created_at || "",
+        }));
+        setComparisons(mapped);
+      } catch (error) {
+        console.error("Erro ao buscar comparações:", error);
+      } finally {
+        setLoading(false);
+      }
     };
+
     fetchComparisons();
   }, [analysisId]);
 
+  if (loading) return <Loader />;
+
   return (
     <div>
-      <h2>Comparações da Análise {analysisId}</h2>
-      <Link to={`/analyses/${analysisId}/comparisons/new`}>Criar Nova Comparação</Link>
+      <PageHeader 
+        title={`Comparações da Análise ${analysisId}`} 
+        actionLabel="Criar Nova Comparação" 
+        actionLink={`/analyses/${analysisId}/comparisons/new`} 
+      />
       {comparisons.length === 0 ? (
-        <p>Nenhuma comparação encontrada.</p>
+        <p className="text-gray-500">Nenhuma comparação encontrada.</p>
       ) : (
-        <ul>
-          {comparisons.map((comp) => (
-            <li key={comp.id}>
-              <Link to={`/comparisons/${comp.id}`}>
-                {comp.pattern_name} vs {comp.document_name}
-              </Link>{" "}
-              - Similaridade: {comp.similarity_score ?? "N/A"}
-            </li>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {comparisons.map(c => (
+            <div key={c.id} className="border rounded shadow p-4 hover:shadow-lg transition">
+              <h3 className="text-lg font-semibold mb-2">
+                <Link to={`/comparisons/${c.id}`} className="hover:underline">{c.title}</Link>
+              </h3>
+              <p className="text-sm text-gray-600 mb-2">{c.description}</p>
+              <p className="text-sm"><strong>Status:</strong> {c.status}</p>
+              <p className="text-sm text-gray-500">
+                Criado em: {c.created_at ? new Date(c.created_at).toLocaleString() : "N/A"}
+              </p>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

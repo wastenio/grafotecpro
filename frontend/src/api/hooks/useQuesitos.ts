@@ -1,14 +1,15 @@
-import axios, { AxiosError } from "axios";
+// src/api/hooks/useQuesitos.ts
+import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
-// Headers de autenticação
+// --- Headers de autenticação ---
 const getAuthHeaders = () => {
   const token = localStorage.getItem("access_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// Axios instance
+// --- Instância axios ---
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -34,7 +35,7 @@ export interface Quesito {
 export const getQuesitos = async (analysisId: number): Promise<Quesito[]> => {
   try {
     const response = await api.get(`/analysis/${analysisId}/quesitos/`);
-    return response.data.results || response.data; // caso use paginação
+    return response.data.results || response.data; // garante array mesmo se paginado
   } catch (error: any) {
     console.error("Erro ao listar quesitos:", error.response || error);
     throw error;

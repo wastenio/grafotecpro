@@ -1,14 +1,15 @@
-import axios, { AxiosError } from "axios";
+// src/api/hooks/useDocuments.ts
+import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
-// Headers de autenticação
+// --- Headers de autenticação ---
 const getAuthHeaders = () => {
   const token = localStorage.getItem("access_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// Axios instance
+// --- Instância axios ---
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -33,7 +34,7 @@ export interface DocumentVersion {
 export const getDocumentVersions = async (documentId: number): Promise<DocumentVersion[]> => {
   try {
     const response = await api.get(`/documents/${documentId}/versions/`);
-    return response.data.results || response.data; // se a API retornar paginado
+    return response.data.results || response.data;
   } catch (error: any) {
     console.error("Erro ao listar versões do documento:", error.response || error);
     throw error;

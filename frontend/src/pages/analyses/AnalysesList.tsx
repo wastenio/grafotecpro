@@ -1,6 +1,9 @@
+// src/pages/analyses/AnalysesList.tsx
 import { useEffect, useState } from "react";
 import { Analysis as AnalysisType, getAnalyses } from "../../api/hooks/useAnalyses";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import Loader from "../../components/common/Loader";
+import ItemCard from "../../components/common/ItemCard";
 
 interface Analysis {
   id: number;
@@ -13,10 +16,12 @@ interface Analysis {
 const AnalysesList = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchAnalyses = async () => {
       if (!caseId) return;
+      setLoading(true);
       try {
         const data: AnalysisType[] = await getAnalyses(Number(caseId));
         // Mapear campos do backend para o formato esperado no frontend
@@ -30,26 +35,34 @@ const AnalysesList = () => {
         setAnalyses(mapped);
       } catch (error) {
         console.error("Erro ao buscar análises:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchAnalyses();
   }, [caseId]);
 
+  if (loading) return <Loader />;
+
   return (
-    <div>
-      <h2>Análises do Case {caseId}</h2>
-      <Link to={`/cases/${caseId}/analyses/new`}>Criar Nova Análise</Link>
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-4">Análises do Case {caseId}</h2>
+
       {analyses.length === 0 ? (
-        <p>Nenhuma análise encontrada.</p>
+        <p className="text-gray-500">Nenhuma análise encontrada.</p>
       ) : (
-        <ul>
-          {analyses.map((analysis) => (
-            <li key={analysis.id}>
-              <Link to={`/analyses/${analysis.id}`}>{analysis.title}</Link> - {analysis.status}
-            </li>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {analyses.map(a => (
+            <ItemCard
+              key={a.id}
+              title={a.title}
+              description={a.description}
+              actionLabel="Ver Detalhes"
+              actionLink={`/analyses/${a.id}`}
+            />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
