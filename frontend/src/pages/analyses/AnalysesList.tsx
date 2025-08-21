@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAnalyses } from "../../api/hooks/useAnalyses";
+import { Analysis as AnalysisType, getAnalyses } from "../../api/hooks/useAnalyses";
 import { Link, useParams } from "react-router-dom";
 
 interface Analysis {
@@ -17,9 +17,22 @@ const AnalysesList = () => {
   useEffect(() => {
     const fetchAnalyses = async () => {
       if (!caseId) return;
-      const data = await getAnalyses(Number(caseId));
-      setAnalyses(data.results); // se o backend paginar, use results
+      try {
+        const data: AnalysisType[] = await getAnalyses(Number(caseId));
+        // Mapear campos do backend para o formato esperado no frontend
+        const mapped: Analysis[] = data.map(a => ({
+          id: a.id,
+          title: a.observation || "Sem título",
+          description: a.methodology || "",
+          status: a.conclusion ? "Concluída" : "Pendente",
+          created_at: a.created_at || "",
+        }));
+        setAnalyses(mapped);
+      } catch (error) {
+        console.error("Erro ao buscar análises:", error);
+      }
     };
+
     fetchAnalyses();
   }, [caseId]);
 

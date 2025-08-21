@@ -1,43 +1,71 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { createComparison } from "../../api/hooks/comparisons";
+
+interface ComparisonFormData {
+  pattern_id?: number;
+  document_id?: number;
+  text?: string; // caso queira algum campo adicional
+}
 
 const ComparisonForm = () => {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [formData, setFormData] = useState<ComparisonFormData>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: Number(value) || value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!analysisId) return;
 
+    setIsSubmitting(true);
     try {
-      await createComparison(Number(analysisId), { title, description });
-      navigate(`/analysis/${analysisId}/comparisons`);
+      const payload = {
+        ...formData,
+      };
+      const newComparison = await createComparison(Number(analysisId), payload);
+      navigate(`/comparisons/${newComparison.id}`);
     } catch (error) {
       console.error("Erro ao criar comparação:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <div>
       <h2>Criar Nova Comparação</h2>
-      <input
-        type="text"
-        value={title}
-        placeholder="Título"
-        onChange={(e) => setTitle(e.target.value)}
-        required
-      />
-      <textarea
-        value={description}
-        placeholder="Descrição"
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <button type="submit">Salvar</button>
-    </form>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Pattern ID:</label>
+          <input
+            type="number"
+            name="pattern_id"
+            value={formData.pattern_id || ""}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div>
+          <label>Document ID:</label>
+          <input
+            type="number"
+            name="document_id"
+            value={formData.document_id || ""}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Salvando..." : "Criar Comparação"}
+        </button>
+      </form>
+    </div>
   );
 };
 
