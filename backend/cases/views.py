@@ -96,6 +96,7 @@ class CaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     Remove o caso especificado.
     """
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CaseSerializer  # <-- Adicione esta linha
 
     def get_queryset(self):
         return Case.objects.filter(user=self.request.user)
@@ -115,6 +116,7 @@ class CaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     @swagger_auto_schema(operation_summary="Deletar caso")
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
+
 
 
 class DocumentUploadView(generics.CreateAPIView):

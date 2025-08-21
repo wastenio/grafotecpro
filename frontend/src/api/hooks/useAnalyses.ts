@@ -1,4 +1,5 @@
 // src/api/hooks/useAnalyses.ts
+
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -9,7 +10,7 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// Instância Axios
+// Instância Axios com headers de autenticação
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -38,44 +39,48 @@ export interface Analysis {
 // --- Listar análises de um case específico ---
 export const getAnalyses = async (caseId: number): Promise<Analysis[]> => {
   try {
-    const response = await api.get(`/analysis/?case=${caseId}`);
-    return response.data.results || response.data;
+    const response = await api.get<Analysis[]>(`/cases/${caseId}/analyses/`);
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    // caso venha um objeto inesperado, retorna array vazio
+    return [];
   } catch (error: any) {
     console.error("Erro ao buscar análises:", error.response || error);
-    throw error;
+    return [];
   }
 };
 
 // --- Detalhes de uma análise ---
-export const getAnalysisDetail = async (id: number): Promise<Analysis> => {
+export const getAnalysisDetail = async (id: number): Promise<Analysis | null> => {
   try {
-    const response = await api.get(`/analysis/${id}/`);
+    const response = await api.get<Analysis>(`/analyses/${id}/`);
     return response.data;
   } catch (error: any) {
     console.error("Erro ao buscar detalhe da análise:", error.response || error);
-    throw error;
+    return null;
   }
 };
 
 // --- Criar nova análise ---
 export const createAnalysis = async (data: any): Promise<Analysis> => {
   try {
-    const response = await api.post("/analysis/", data);
-    return response.data;
+    const response = await api.post<Analysis>("/analyses/", data); // endpoint ajustado
+    return response.data; // sempre retorna Analysis
   } catch (error: any) {
     console.error("Erro ao criar análise:", error.response || error);
-    throw error;
+    throw error; // lança exceção para o form lidar
   }
 };
 
 // --- Atualizar análise ---
-export const updateAnalysis = async (id: number, data: any): Promise<Analysis> => {
+export const updateAnalysis = async (id: number, data: Partial<Analysis>): Promise<Analysis | null> => {
   try {
-    const response = await api.put(`/analysis/${id}/`, data);
+    const response = await api.put<Analysis>(`/analyses/${id}/`, data);
     return response.data;
   } catch (error: any) {
     console.error("Erro ao atualizar análise:", error.response || error);
-    throw error;
+    return null;
   }
 };
 
@@ -85,7 +90,7 @@ export const uploadAnalysisDocument = async (id: number, file: File): Promise<an
     const formData = new FormData();
     formData.append("document", file);
 
-    const response = await api.post(`/analysis/${id}/upload_document/`, formData, {
+    const response = await api.post(`/analyses/${id}/upload_document/`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
         ...getAuthHeaders(),
@@ -101,7 +106,7 @@ export const uploadAnalysisDocument = async (id: number, file: File): Promise<an
 // --- Rodar análise AI ---
 export const runAIAnalysis = async (id: number): Promise<any> => {
   try {
-    const response = await api.post(`/analysis/${id}/run_ai_analysis/`);
+    const response = await api.post(`/analyses/${id}/run_ai_analysis/`);
     return response.data;
   } catch (error: any) {
     console.error("Erro ao rodar análise AI:", error.response || error);
@@ -112,7 +117,7 @@ export const runAIAnalysis = async (id: number): Promise<any> => {
 // --- Exportar PDF ---
 export const exportAnalysisPDF = async (id: number): Promise<Blob> => {
   try {
-    const response = await api.get(`/analysis/${id}/export_pdf/`, { responseType: "blob" });
+    const response = await api.get(`/analyses/${id}/export_pdf/`, { responseType: "blob" });
     return response.data;
   } catch (error: any) {
     console.error("Erro ao exportar PDF:", error.response || error);
@@ -123,7 +128,7 @@ export const exportAnalysisPDF = async (id: number): Promise<Blob> => {
 // --- Exportar DOCX ---
 export const exportAnalysisDOCX = async (id: number): Promise<Blob> => {
   try {
-    const response = await api.get(`/analysis/${id}/export_docx/`, { responseType: "blob" });
+    const response = await api.get(`/analyses/${id}/export_docx/`, { responseType: "blob" });
     return response.data;
   } catch (error: any) {
     console.error("Erro ao exportar DOCX:", error.response || error);

@@ -1,112 +1,77 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { getCaseDetail } from "../../api/cases";
-
-interface Document {
-  id: number;
-  name: string;
-  url: string;
-}
+// src/pages/cases/CasesList.tsx
+import React, { useEffect, useState } from "react";
+import { getCases } from "../../api/cases";
+import CaseForm from "../../components/cases/CaseForm";
+import CaseCard from "../../components/cases/CaseCard";
 
 interface Case {
   id: number;
   title: string;
   description?: string;
-  status?: string;
-  created_at?: string;
-  documents?: Document[];
-  final_report?: string | null;
+  status: string;
+  created_at: string;
 }
 
-const CaseDetail = () => {
-  const { caseId } = useParams<{ caseId: string }>();
-  const [caseData, setCaseData] = useState<Case | null>(null);
+const CasesList: React.FC = () => {
+  const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
+
+  const fetchCases = async () => {
+    setLoading(true);
+    try {
+      const data = await getCases(); // já retorna array diretamente
+      setCases(data);
+    } catch (err) {
+      console.error("Erro ao carregar cases:", err);
+      setError("Erro ao carregar cases");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCase = async () => {
-      if (!caseId) return;
-      setLoading(true);
-      try {
-        const data = await getCaseDetail(Number(caseId));
-        setCaseData(data);
-      } catch (err) {
-        console.error("Erro ao buscar caso:", err);
-        setError("Não foi possível carregar o caso.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCase();
-  }, [caseId]);
+  const fetchCases = async () => {
+    setLoading(true);
+    try {
+      const data = await getCases();
+      setCases(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError("Erro ao carregar cases");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchCases();
+}, []);
 
-  if (loading) return <p>Carregando caso...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!caseData) return <p>Case não encontrado.</p>;
 
-  const formattedDate = caseData.created_at
-    ? new Date(caseData.created_at).toLocaleString()
-    : "Data não disponível";
+  // Callback para adicionar o case recém-criado no topo
+  const handleNewCase = (newCase: Case) => {
+    setCases((prev) => [newCase, ...prev]);
+  };
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem" }}>
-      <h2 className="text-2xl font-bold mb-2">{caseData.title}</h2>
-      <p><strong>Status:</strong> {caseData.status || "Não informado"}</p>
-      <p><strong>Criado em:</strong> {formattedDate}</p>
-      <p><strong>Descrição:</strong> {caseData.description || "Sem descrição"}</p>
+      <h1>Lista de Casos</h1>
+      <CaseForm onCaseCreated={handleNewCase} />
 
-      <div className="my-4 flex gap-2">
-        <Link
-          to={`/cases/${caseId}/analyses`}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-        >
-          Ver Análises
-        </Link>
+      {loading && <p>Carregando casos...</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {!loading && cases.length === 0 && <p>Nenhum caso encontrado.</p>}
 
-        <Link
-          to={`/cases/${caseId}/analyses/new`}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
-        >
-          Criar Nova Análise
-        </Link>
-      </div>
-
-      <h3 className="text-xl font-semibold mt-6 mb-2">Documentos</h3>
-      {caseData.documents && caseData.documents.length > 0 ? (
-        <ul className="list-disc ml-5">
-          {caseData.documents.map((doc) => (
-            <li key={doc.id}>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
-              >
-                {doc.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Nenhum documento enviado.</p>
-      )}
-
-      {caseData.final_report && (
-        <div className="mt-4">
-          <strong>Relatório Final:</strong>{" "}
-          <a
-            href={caseData.final_report}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-red-600 hover:underline"
-          >
-            Baixar
-          </a>
-        </div>
-      )}
+      {cases.map((c) => (
+        <CaseCard
+          key={c.id}
+          id={c.id}
+          title={c.title}
+          description={c.description}
+          status={c.status}
+          created_at={c.created_at}
+        />
+      ))}
     </div>
   );
 };
 
-export default CaseDetail;
+export default CasesList;

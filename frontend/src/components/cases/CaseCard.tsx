@@ -1,26 +1,32 @@
 // src/components/cases/CaseCard.tsx
-import React from "react";
-import { Case } from "../../api/cases";
+import { Card, CardContent, Typography, Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 interface CaseCardProps {
-  caseData: Case;
+  id: number;
+  title: string;
+  description?: string;
+  status: string;
+  created_at: string;
 }
 
-const CaseCard: React.FC<CaseCardProps> = ({ caseData }) => {
-  const formattedDate = caseData.created_at
-    ? new Date(caseData.created_at).toLocaleString()
-    : "Data não disponível";
+export default function CaseCard({ id, title, description, status, created_at }: CaseCardProps) {
+  const navigate = useNavigate();
 
   return (
-    <div className="border rounded p-4 shadow-sm bg-white hover:shadow-md transition mb-4">
-      <h2 className="text-xl font-semibold">{caseData.title}</h2>
-      <p className="text-gray-700">{caseData.description}</p>
-      {caseData.status && (
-        <p className="text-sm text-gray-600">Status: {caseData.status}</p>
-      )}
-      <p className="text-sm text-gray-500">Criado em: {formattedDate}</p>
-    </div>
+    <Card sx={{ marginBottom: 2 }}>
+      <CardContent>
+        <Typography variant="h6">{title}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {description || "Sem descrição"}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+          Status: {status} | Criado em: {new Date(created_at).toLocaleString()}
+        </Typography>
+        <Button sx={{ mt: 1 }} onClick={() => navigate(`/cases/${id}`)}>
+          Ver Detalhes
+        </Button>
+      </CardContent>
+    </Card>
   );
-};
-
-export default CaseCard;
+}

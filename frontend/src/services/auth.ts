@@ -1,26 +1,22 @@
-import api from "axios";
-
-const API_BASE_URL = "http://localhost:8000/api";
+// src/services/auth.ts
+import api from "../api/axios"; // instância com baseURL e headers já configurados
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post(`${API_BASE_URL}/users/login/`, {
-      email,
-      password,
-    });
+    const response = await api.post("/users/login/", { email, password });
 
-    // Salva tokens no localStorage
-    localStorage.setItem("accessToken", response.data.access);
-    localStorage.setItem("refreshToken", response.data.refresh);
+    // Salva tokens no localStorage (padronizando nomes)
+    localStorage.setItem("access_token", response.data.access);
+    localStorage.setItem("refresh_token", response.data.refresh);
 
     return response.data;
   } catch (error: any) {
-    console.error("Erro no login:", error);
+    console.error("Erro no login:", error.response || error);
     throw error;
   }
 };
 
 export const logout = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
 };

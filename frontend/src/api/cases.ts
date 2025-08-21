@@ -24,7 +24,7 @@ export interface Case {
 // --- Listar todos os cases ---
 export const getCases = async (): Promise<Case[]> => {
   const response = await api.get("/cases/");
-  return response.data; // o backend já deve devolver um array
+  return response.data.results; // <-- retorna o array diretamente
 };
 
 // --- Detalhes de um case ---

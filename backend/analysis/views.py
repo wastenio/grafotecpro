@@ -227,8 +227,9 @@ class CaseAnalysisListView(generics.ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        case_id = self.kwargs['case_id']
-        return Analysis.objects.filter(case_id=case_id, case__user=self.request.user).order_by('-created_at')
+        case_id = self.kwargs.get('case_id')  # pega o case_id da URL
+        # Filtra análises que pertencem ao caso e ao usuário autenticado
+        return Analysis.objects.filter(case_id=case_id, case__user=self.request.user)
 
 
 class AnalysisUpdateView(generics.RetrieveUpdateAPIView):

@@ -14,20 +14,24 @@ const AnalysisForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!caseId) return;
+  const handleSubmit = async (formData: any) => {
+    if (!caseId) return; // garante que caseId existe
 
     setIsSubmitting(true);
     try {
-      const newAnalysis: AnalysisType = await createAnalysis({ case: Number(caseId), ...formData });
+      const newAnalysis: AnalysisType = await createAnalysis({
+        case: Number(caseId),
+        ...formData,
+      });
+
       navigate(`/analyses/${newAnalysis.id}`);
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao criar análise:", err);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="max-w-3xl mx-auto p-4">
